@@ -1,26 +1,60 @@
 /* ------------------------------------------------------------------ */
-/*  Gemini API integration — grounded conversational tutor            */
+/*  Gemini API integration — grounded tutor with optional web context */
 /* ------------------------------------------------------------------ */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGeminiApiKey } from './env';
 import { ChatMessage } from '@/types';
 
-const SYSTEM_PROMPT = `You are a helpful tutor that helps users understand news articles. Follow these rules strictly:
+/* ---------- System prompt ---------- */
 
-1. Ground ALL answers in the provided article text. Reference specific parts when relevant (e.g. "The article mentions that…").
-2. Never fabricate quotes, numbers, statistics, or claims not supported by the article.
-3. If the user asks for background context beyond the article, clearly label it as "General context:" and tie it back to the article.
-4. Be concise by default. Only give detailed explanations when the user explicitly asks for more depth.
-5. If you cannot answer a question based on the article, say so honestly rather than guessing.`;
+const SYSTEM_PROMPT = `You are a helpful tutor that helps users understand news articles.
 
-const MAX_ARTICLE_CHARS = 15_000; // truncate very long articles to stay within token limits
+## Primary Response Policy
+
+1. ALWAYS start by answering from the provided article text.
+   Reference specific parts when relevant (e.g. "The article mentions that…").
+
+2. If the article contains sufficient information to fully answer the question,
+   answer entirely from it.
+
+3. If the article does NOT contain sufficient information AND web search results
+   are provided below the article:
+   - First provide what the article says under a heading "**From the article:**"
+   - Then provide additional context under a heading "**Additional context:**"
+   - Cite every piece of external information with its source like this:
+     [Source Name](URL)
+   - ONLY use information from the provided search results — never fabricate sources or URLs.
+
+4. If the question needs background but NO search results are provided:
+   - Answer from the article as best you can.
+   - You may provide brief, commonly-known factual background and label it as:
+     "**General background (no web lookup performed):**"
+   - Keep general background minimal and clearly separated.
+   - Suggest: "For more detailed context with sources, you can retry your question."
+
+## Source Quality Rules (when using search results)
+- Prefer official / primary sources (government sites, regulators, committee pages).
+- For politics/economics, prioritize: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
+- Wikipedia is acceptable only for basic definitions.
+- Never cite unreliable or unrecognised sources.
+
+## General Rules
+- Never fabricate quotes, numbers, statistics, or claims.
+- Be concise by default. Only give detailed explanations when the user explicitly asks for depth.
+- If you cannot answer a question even with the provided sources, say so honestly.`;
+
+const MAX_ARTICLE_CHARS = 15_000;
 const TIMEOUT_MS = 30_000; // 30-second timeout for Gemini responses
+
+/* ---------- Main function ---------- */
 
 export async function generateChatResponse(
   articleText: string,
   chatHistory: ChatMessage[],
-  userMessage: string
+  userMessage: string,
+  /** Pre-formatted search results block, or empty string if none. */
+  searchContext: string = ''
 ): Promise<string> {
   const apiKey = getGeminiApiKey();
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -30,9 +64,16 @@ export async function generateChatResponse(
       ? articleText.slice(0, MAX_ARTICLE_CHARS) + '\n\n[Article truncated for length]'
       : articleText;
 
+  // Build the full system instruction: prompt + article + optional search results
+  let systemInstruction = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
+
+  if (searchContext) {
+    systemInstruction += `\n\n${searchContext}`;
+  }
+
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash-lite',
-    systemInstruction: `${SYSTEM_PROMPT}\n\nArticle text:\n\n${truncatedArticle}`,
+    systemInstruction,
   });
 
   // Build chat history in the format Gemini expects (alternating user/model)
