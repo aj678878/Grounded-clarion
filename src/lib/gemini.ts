@@ -31,7 +31,7 @@ export async function generateChatResponse(
       : articleText;
 
   const model = genAI.getGenerativeModel({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash-lite',
     systemInstruction: `${SYSTEM_PROMPT}\n\nArticle text:\n\n${truncatedArticle}`,
   });
 
