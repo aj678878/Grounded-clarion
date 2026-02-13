@@ -1,59 +1,163 @@
 /* ------------------------------------------------------------------ */
-/*  Gemini API integration — grounded tutor with optional web context */
+/*  Gemini API — sufficiency router + grounded tutor response         */
 /* ------------------------------------------------------------------ */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getGeminiApiKey } from './env';
 import { ChatMessage } from '@/types';
 
-/* ---------- System prompt ---------- */
+/* ================================================================== */
+/*  Step A — Sufficiency Router                                       */
+/*  Cheap/fast call to decide if we need web context.                 */
+/* ================================================================== */
+
+const ROUTER_PROMPT = `You are a routing assistant. Given a news article and a user question, decide whether the article contains enough information to answer the question fully — or whether a web search is needed for definitions, background, context, or facts not in the article.
+
+Output ONLY valid JSON with this exact schema:
+{
+  "need_web": boolean,
+  "reason": string,
+  "suggested_queries": string[],
+  "must_cite": boolean
+}
+
+Rules:
+- need_web = true if:
+  • The user asks "what is X", "who is X", "explain X", definitions, background, agendas, history, "why does X matter", or any context question the article does not explicitly answer.
+  • The article does not contain sufficient facts/figures to answer without speculation.
+  • The user references an entity, organisation, concept, or policy not explained in the article.
+- need_web = false if:
+  • The article contains all facts needed to answer the question.
+  • The question is about the article's narrative, summary, or opinion.
+- suggested_queries: 1–2 concise Google-style search queries to find the missing context. Make them specific and factual.
+- must_cite: true if the answer will include external facts that must be cited.
+- reason: one-sentence explanation of why web search is or isn't needed.
+
+Do NOT output anything except the JSON object.`;
+
+const ROUTER_TIMEOUT_MS = 5_000;
+
+export interface SufficiencyResult {
+  need_web: boolean;
+  reason: string;
+  suggested_queries: string[];
+  must_cite: boolean;
+}
+
+const DEFAULT_RESULT: SufficiencyResult = {
+  need_web: false,
+  reason: 'Router defaulted (timeout or error)',
+  suggested_queries: [],
+  must_cite: false,
+};
+
+export async function checkSufficiency(
+  articleText: string,
+  userMessage: string,
+  chatHistory: ChatMessage[]
+): Promise<SufficiencyResult> {
+  try {
+    const apiKey = getGeminiApiKey();
+    const genAI = new GoogleGenerativeAI(apiKey);
+
+    // Condense article to save tokens on the router call
+    const condensed =
+      articleText.length > 3_000
+        ? articleText.slice(0, 3_000) + '\n…[article truncated for routing]'
+        : articleText;
+
+    // Include last 2 chat messages for conversational context
+    const recentHistory = chatHistory
+      .slice(-2)
+      .map((m) => `${m.role}: ${m.content}`)
+      .join('\n');
+
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash-lite',
+      systemInstruction: ROUTER_PROMPT,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 200,
+      },
+    });
+
+    const prompt = [
+      recentHistory ? `Recent conversation:\n${recentHistory}\n` : '',
+      `Article (condensed):\n${condensed}\n`,
+      `User question: ${userMessage}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const resultPromise = model.generateContent(prompt);
+    const timeoutPromise = new Promise<'TIMEOUT'>((resolve) =>
+      setTimeout(() => resolve('TIMEOUT'), ROUTER_TIMEOUT_MS)
+    );
+
+    const raceResult = await Promise.race([resultPromise, timeoutPromise]);
+
+    if (raceResult === 'TIMEOUT') {
+      console.warn('[router] Sufficiency check timed out');
+      return DEFAULT_RESULT;
+    }
+
+    const text = raceResult.response.text();
+    const parsed = JSON.parse(text) as SufficiencyResult;
+
+    // Validate shape
+    if (typeof parsed.need_web !== 'boolean') return DEFAULT_RESULT;
+    if (!Array.isArray(parsed.suggested_queries)) parsed.suggested_queries = [];
+
+    return parsed;
+  } catch (err) {
+    console.error('[router] Sufficiency check failed:', err);
+    return DEFAULT_RESULT;
+  }
+}
+
+/* ================================================================== */
+/*  Step B — Response Generation                                      */
+/* ================================================================== */
 
 const SYSTEM_PROMPT = `You are a helpful tutor that helps users understand news articles.
 
-## Primary Response Policy
+## Response Structure
 
-1. ALWAYS start by answering from the provided article text.
-   Reference specific parts when relevant (e.g. "The article mentions that…").
+**When web search results ARE provided:**
+Structure your response with clear sections:
 
-2. If the article contains sufficient information to fully answer the question,
-   answer entirely from it.
+**From the article:**
+(Information drawn directly from the article text. Reference specific parts.)
 
-3. If the article does NOT contain sufficient information AND web search results
-   are provided below the article:
-   - First provide what the article says under a heading "**From the article:**"
-   - Then provide additional context under a heading "**Additional context:**"
-   - Cite every piece of external information with its source like this:
-     [Source Name](URL)
-   - ONLY use information from the provided search results — never fabricate sources or URLs.
+**Additional context:**
+(Information from the web search results. Cite each fact with its source as a markdown link: [Source Name](URL).)
 
-4. If the question needs background but NO search results are provided:
-   - Answer from the article as best you can.
-   - You may provide brief, commonly-known factual background and label it as:
-     "**General background (no web lookup performed):**"
-   - Keep general background minimal and clearly separated.
-   - Suggest: "For more detailed context with sources, you can retry your question."
+**When NO web search results are provided:**
+Answer from the article. If the article is insufficient:
+- You may add brief, commonly-known factual background.
+- Label it: **General background (no web lookup performed):**
+- Keep it minimal and factual.
 
-## Source Quality Rules (when using search results)
-- Prefer official / primary sources (government sites, regulators, committee pages).
-- For politics/economics, prioritize: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
-- Wikipedia is acceptable only for basic definitions.
-- Never cite unreliable or unrecognised sources.
+## Core Rules
+1. Ground answers in the article text first — always start there.
+2. Never fabricate quotes, numbers, statistics, claims, sources, or URLs.
+3. When citing web sources, ONLY use information from the provided search results.
+4. Be concise by default. Expand only when the user asks for depth.
+5. If you cannot answer even with provided sources, say so honestly.
 
-## General Rules
-- Never fabricate quotes, numbers, statistics, or claims.
-- Be concise by default. Only give detailed explanations when the user explicitly asks for depth.
-- If you cannot answer a question even with the provided sources, say so honestly.`;
+## Source Quality (when citing web results)
+- Prefer official/primary sources (government sites, regulators, committees).
+- For politics/economics, prefer: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
+- If sources conflict, state both viewpoints and cite each.
+- Wikipedia is acceptable only for basic definitions.`;
 
 const MAX_ARTICLE_CHARS = 15_000;
-const TIMEOUT_MS = 30_000; // 30-second timeout for Gemini responses
-
-/* ---------- Main function ---------- */
+const RESPONSE_TIMEOUT_MS = 30_000;
 
 export async function generateChatResponse(
   articleText: string,
   chatHistory: ChatMessage[],
   userMessage: string,
-  /** Pre-formatted search results block, or empty string if none. */
   searchContext: string = ''
 ): Promise<string> {
   const apiKey = getGeminiApiKey();
@@ -64,7 +168,6 @@ export async function generateChatResponse(
       ? articleText.slice(0, MAX_ARTICLE_CHARS) + '\n\n[Article truncated for length]'
       : articleText;
 
-  // Build the full system instruction: prompt + article + optional search results
   let systemInstruction = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
 
   if (searchContext) {
@@ -76,7 +179,6 @@ export async function generateChatResponse(
     systemInstruction,
   });
 
-  // Build chat history in the format Gemini expects (alternating user/model)
   const history = chatHistory.map((msg) => ({
     role: msg.role === 'user' ? ('user' as const) : ('model' as const),
     parts: [{ text: msg.content }],
@@ -84,10 +186,9 @@ export async function generateChatResponse(
 
   const chat = model.startChat({ history });
 
-  // Race against timeout
   const resultPromise = chat.sendMessage(userMessage);
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('LLM_TIMEOUT')), TIMEOUT_MS)
+    setTimeout(() => reject(new Error('LLM_TIMEOUT')), RESPONSE_TIMEOUT_MS)
   );
 
   try {
@@ -96,12 +197,8 @@ export async function generateChatResponse(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
 
-    if (message === 'LLM_TIMEOUT') {
-      throw new Error('LLM_TIMEOUT');
-    }
-    if (message.includes('quota') || message.includes('429')) {
-      throw new Error('QUOTA_EXCEEDED');
-    }
+    if (message === 'LLM_TIMEOUT') throw new Error('LLM_TIMEOUT');
+    if (message.includes('quota') || message.includes('429')) throw new Error('QUOTA_EXCEEDED');
     if (
       message.includes('token') ||
       message.includes('context length') ||

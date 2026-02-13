@@ -1,143 +1,53 @@
 /* ------------------------------------------------------------------ */
-/*  Web search module — Tavily / SerpAPI / none                       */
-/*  Used by /api/chat to fetch external context when the article      */
-/*  doesn't contain enough information to answer the user's question. */
+/*  Tavily web search — used by the chat router for external context  */
+/*                                                                    */
+/*  Env: TAVILY_API_KEY (if unset → search is unavailable)            */
 /* ------------------------------------------------------------------ */
 
 export interface SearchResult {
   title: string;
   url: string;
   snippet: string;
-  source: string; // domain or publisher name
+  source: string; // extracted domain
+  score: number;  // credibility score (3 = official, 2 = major outlet, 1 = reference, 0 = other)
 }
 
-/* ---------- Detect if a question likely needs external context ---------- */
+/* ---------- Domain credibility scoring ---------- */
 
-const CONTEXT_PATTERNS = [
-  /\bwhat is\b/i, /\bwhat are\b/i, /\bwhat was\b/i, /\bwhat were\b/i,
-  /\bwho is\b/i, /\bwho are\b/i, /\bwho was\b/i, /\bwho were\b/i,
-  /\bexplain\b/i, /\bdefine\b/i, /\bdefinition\b/i,
-  /\bbackground\b/i, /\bagenda\b/i, /\bhistory of\b/i,
-  /\bwhy does\b/i, /\bwhy do\b/i, /\bwhy is\b/i, /\bwhy did\b/i, /\bwhy are\b/i,
-  /\bwhat does .+ mean\b/i, /\bwhat.+stand for\b/i,
-  /\btell me (?:more )?about\b/i, /\bmore context\b/i, /\bmore information\b/i,
-  /\bwhat happened\b/i, /\bhow does .+ work\b/i, /\bhow do .+ work\b/i,
-  /\brole of\b/i, /\bpurpose of\b/i, /\bmeaning of\b/i,
-  /\bsignificance\b/i, /\bimplications?\b/i, /\bconsequences?\b/i,
-  /\bwhat led to\b/i, /\bwhat caused\b/i, /\bwhat.+about\b/i,
-  /\bcan you explain\b/i, /\bi don'?t understand\b/i,
-];
+const DOMAIN_SCORES: Record<string, number> = {
+  // 3 — Government / official institutions
+  'gov.uk': 3, 'parliament.uk': 3, 'congress.gov': 3, 'whitehouse.gov': 3,
+  'europa.eu': 3, 'un.org': 3, 'imf.org': 3, 'worldbank.org': 3,
+  'oecd.org': 3, 'wto.org': 3, 'who.int': 3,
+  'federalreserve.gov': 3, 'ecb.europa.eu': 3, 'bankofengland.co.uk': 3,
+  'rbi.org.in': 3, 'india.gov.in': 3, 'pib.gov.in': 3,
 
-export function needsExternalContext(question: string): boolean {
-  return CONTEXT_PATTERNS.some((p) => p.test(question));
-}
+  // 2 — Major news outlets / wires
+  'bbc.co.uk': 2, 'bbc.com': 2, 'reuters.com': 2, 'apnews.com': 2,
+  'ft.com': 2, 'wsj.com': 2, 'economist.com': 2, 'theguardian.com': 2,
+  'nytimes.com': 2, 'washingtonpost.com': 2, 'bloomberg.com': 2,
+  'aljazeera.com': 2, 'politico.com': 2, 'politico.eu': 2,
+  'cnbc.com': 2, 'thehindu.com': 2, 'indianexpress.com': 2,
+  'ndtv.com': 2, 'livemint.com': 2,
 
-/* ---------- Provider: Tavily ---------- */
+  // 1 — Reliable reference
+  'en.wikipedia.org': 1, 'wikipedia.org': 1, 'britannica.com': 1,
+};
 
-async function searchTavily(query: string, apiKey: string): Promise<SearchResult[]> {
-  const res = await fetch('https://api.tavily.com/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query,
-      max_results: 5,
-      search_depth: 'basic',
-    }),
-  });
-
-  if (!res.ok) {
-    console.error('[search/tavily] HTTP', res.status);
-    return [];
-  }
-
-  const data = await res.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data.results ?? []).map((r: any) => ({
-    title: r.title ?? '',
-    url: r.url ?? '',
-    snippet: r.content ?? '',
-    source: extractDomain(r.url ?? ''),
-  }));
-}
-
-/* ---------- Provider: SerpAPI ---------- */
-
-async function searchSerpApi(query: string, apiKey: string): Promise<SearchResult[]> {
-  const params = new URLSearchParams({
-    engine: 'google',
-    q: query,
-    api_key: apiKey,
-    num: '5',
-  });
-
-  const res = await fetch(`https://serpapi.com/search.json?${params}`);
-
-  if (!res.ok) {
-    console.error('[search/serpapi] HTTP', res.status);
-    return [];
-  }
-
-  const data = await res.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data.organic_results ?? []).slice(0, 5).map((r: any) => ({
-    title: r.title ?? '',
-    url: r.link ?? '',
-    snippet: r.snippet ?? '',
-    source: extractDomain(r.link ?? ''),
-  }));
-}
-
-/* ---------- Unified search entry point ---------- */
-
-const SEARCH_TIMEOUT_MS = 8_000; // 8-second hard timeout for the search phase
-
-/**
- * Search the web for additional context.
- * Returns results, or empty array if provider is "none", unconfigured, or timeout.
- * `searchTimedOut` is true if we ran out of time — the caller should tell the user.
- */
-export async function searchWeb(
-  query: string
-): Promise<{ results: SearchResult[]; searchTimedOut: boolean; provider: string }> {
-  const provider = (process.env.SEARCH_PROVIDER ?? 'none').toLowerCase();
-  const apiKey = process.env.SEARCH_API_KEY ?? '';
-
-  if (provider === 'none' || !apiKey) {
-    return { results: [], searchTimedOut: false, provider: 'none' };
-  }
-
-  const searchFn =
-    provider === 'tavily' ? searchTavily
-    : provider === 'serpapi' ? searchSerpApi
-    : null;
-
-  if (!searchFn) {
-    console.warn(`[search] Unknown SEARCH_PROVIDER: ${provider}`);
-    return { results: [], searchTimedOut: false, provider };
-  }
-
-  // Race against timeout
-  const timeout = new Promise<'TIMEOUT'>((resolve) =>
-    setTimeout(() => resolve('TIMEOUT'), SEARCH_TIMEOUT_MS)
-  );
-
+function scoreDomain(url: string): number {
   try {
-    const raceResult = await Promise.race([searchFn(query, apiKey), timeout]);
-
-    if (raceResult === 'TIMEOUT') {
-      console.warn('[search] Timed out after', SEARCH_TIMEOUT_MS, 'ms');
-      return { results: [], searchTimedOut: true, provider };
+    const hostname = new URL(url).hostname.replace(/^www\./, '');
+    // Check exact match first, then progressively wider suffixes
+    if (DOMAIN_SCORES[hostname] !== undefined) return DOMAIN_SCORES[hostname];
+    // Check if it's a subdomain of a known domain (e.g. news.bbc.co.uk)
+    for (const [domain, score] of Object.entries(DOMAIN_SCORES)) {
+      if (hostname.endsWith('.' + domain) || hostname === domain) return score;
     }
-
-    return { results: raceResult, searchTimedOut: false, provider };
-  } catch (err) {
-    console.error('[search] Error:', err);
-    return { results: [], searchTimedOut: false, provider };
+    return 0;
+  } catch {
+    return 0;
   }
 }
-
-/* ---------- Helpers ---------- */
 
 function extractDomain(url: string): string {
   try {
@@ -147,9 +57,91 @@ function extractDomain(url: string): string {
   }
 }
 
+/* ---------- Tavily search ---------- */
+
+const SEARCH_TIMEOUT_MS = 8_000;
+
 /**
- * Format search results into a text block suitable for the LLM context window.
+ * Search Tavily with 1–2 queries, merge & deduplicate results,
+ * score by domain credibility, return top 3.
  */
+export async function searchTavily(
+  queries: string[]
+): Promise<{ results: SearchResult[]; timedOut: boolean }> {
+  const apiKey = process.env.TAVILY_API_KEY ?? '';
+  if (!apiKey) {
+    return { results: [], timedOut: false };
+  }
+
+  // Take at most 2 queries
+  const toRun = queries.slice(0, 2);
+
+  const timeout = new Promise<'TIMEOUT'>((resolve) =>
+    setTimeout(() => resolve('TIMEOUT'), SEARCH_TIMEOUT_MS)
+  );
+
+  try {
+    const searchPromises = toRun.map((q) =>
+      fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: q,
+          max_results: 5,
+          search_depth: 'basic',
+        }),
+      }).then((r) => (r.ok ? r.json() : { results: [] }))
+    );
+
+    const raceResult = await Promise.race([
+      Promise.all(searchPromises),
+      timeout,
+    ]);
+
+    if (raceResult === 'TIMEOUT') {
+      console.warn('[search] Tavily timed out after', SEARCH_TIMEOUT_MS, 'ms');
+      return { results: [], timedOut: true };
+    }
+
+    // Merge results from all queries
+    const allResults: SearchResult[] = [];
+    const seenUrls = new Set<string>();
+
+    for (const data of raceResult) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of (data.results ?? [])) {
+        const url = r.url ?? '';
+        if (seenUrls.has(url)) continue;
+        seenUrls.add(url);
+
+        allResults.push({
+          title: r.title ?? '',
+          url,
+          snippet: r.content ?? '',
+          source: extractDomain(url),
+          score: scoreDomain(url),
+        });
+      }
+    }
+
+    // Sort by credibility score (desc), take top 3
+    allResults.sort((a, b) => b.score - a.score);
+    return { results: allResults.slice(0, 3), timedOut: false };
+  } catch (err) {
+    console.error('[search] Tavily error:', err);
+    return { results: [], timedOut: false };
+  }
+}
+
+/* ---------- Check if Tavily is configured ---------- */
+
+export function isSearchAvailable(): boolean {
+  return Boolean(process.env.TAVILY_API_KEY);
+}
+
+/* ---------- Format results for LLM context ---------- */
+
 export function formatSearchResultsForLLM(results: SearchResult[]): string {
   if (results.length === 0) return '';
 
@@ -159,7 +151,7 @@ export function formatSearchResultsForLLM(results: SearchResult[]): string {
   );
 
   return (
-    '=== WEB SEARCH RESULTS (use these for additional context; cite URL when referencing) ===\n\n' +
+    '=== WEB SEARCH RESULTS (use for "Additional context" section; cite URL when referencing) ===\n\n' +
     lines.join('\n\n')
   );
 }
