@@ -5,7 +5,6 @@ import { ChatMessage } from '@/types';
 import { getSessionId, generateThreadId } from '@/lib/session';
 import ChatBubble from './ChatBubble';
 import Button from './Button';
-import LoadingState from './LoadingState';
 
 interface ChatPanelProps {
   articleId: string;
@@ -39,13 +38,17 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const sessionId = useMemo(() => getSessionId(), []);
 
-  // Scroll to bottom on new messages
+  // Autoscroll the messages container to bottom on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages, isLoading]);
 
   /* ---- Send message ---- */
@@ -162,16 +165,27 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
   };
 
   return (
-    <aside className="flex h-full flex-col border-l border-gray-200 bg-white">
-      {/* Sticky header */}
+    /*
+      This component expects its parent to set the height
+      (e.g. the aside in ArticleView fills the viewport below the header).
+      We use flex-col + h-full so:
+        - header is pinned top
+        - messages area scrolls
+        - composer is pinned bottom
+    */
+    <div className="flex h-full flex-col">
+      {/* ---- Chat header (pinned top) ---- */}
       <div className="flex-shrink-0 border-b border-gray-100 px-4 py-3">
         <h2 className="font-headline text-sm font-bold text-gray-800">
           Ask about this article
         </h2>
       </div>
 
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      {/* ---- Scrollable messages area ---- */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 chat-scroll"
+      >
         {messages.length === 0 && !isLoading && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5 text-primary/40">
@@ -185,7 +199,7 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
           </div>
         )}
 
-        {/* Thread separator helper */}
+        {/* Thread separator + messages */}
         {messages.map((msg, i) => {
           const prevThread = i > 0 ? messages[i - 1].threadId : null;
           const showSeparator = msg.threadId !== prevThread && i > 0;
@@ -208,6 +222,7 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
           );
         })}
 
+        {/* Typing indicator */}
         {isLoading && (
           <div className="flex justify-start">
             <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
@@ -220,6 +235,7 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
           </div>
         )}
 
+        {/* Error */}
         {error && (
           <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
             <p className="text-sm text-amber-800 font-body">{error}</p>
@@ -235,8 +251,8 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Bottom controls */}
-      <div className="flex-shrink-0 border-t border-gray-100 p-3 space-y-2">
+      {/* ---- Composer (pinned bottom) ---- */}
+      <div className="flex-shrink-0 border-t border-gray-100 bg-white p-3 space-y-2">
         {threadId && (
           <button
             onClick={handleNewQuestion}
@@ -262,6 +278,6 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
           </Button>
         </div>
       </div>
-    </aside>
+    </div>
   );
 }
