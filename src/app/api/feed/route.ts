@@ -23,14 +23,24 @@ export async function GET(request: NextRequest) {
 
     articles = deduplicateArticles(articles);
 
-    return NextResponse.json({
-      articles,
-      page,
-      hasMore: articles.length >= 20, // conservative: if we got ≥20 after dedup, probably more
-    });
+    return NextResponse.json(
+      {
+        articles,
+        page,
+        hasMore: articles.length >= 20, // conservative: if we got ≥20 after dedup, probably more
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch feed';
     const status = message.includes('QUOTA_EXCEEDED') ? 429 : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json(
+      { error: message },
+      { status, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   }
 }

@@ -2,13 +2,72 @@
 /*  Gemini API — sufficiency router + grounded tutor response         */
 /* ------------------------------------------------------------------ */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, type GenerateContentResult } from '@google/generative-ai';
 import { getGeminiApiKey } from './env';
 import { ChatMessage } from '@/types';
 
 /* ================================================================== */
+/*  Shared: robust text extraction + completeness check               */
+/* ================================================================== */
+
+const IS_DEV = process.env.NODE_ENV === 'development';
+
+/**
+ * Robustly extract the full text from a Gemini result.
+ * 1. Uses result.response.text() if available.
+ * 2. Falls back to joining ALL parts of the top candidate.
+ * Never truncates.
+ */
+function extractGeminiText(result: GenerateContentResult): string {
+  try {
+    // Primary: SDK helper (joins all parts internally)
+    const text = result.response.text();
+    if (text) {
+      if (IS_DEV) {
+        console.log('[gemini] Extracted text length:', text.length);
+        console.log('[gemini] Last 50 chars:', JSON.stringify(text.slice(-50)));
+      }
+      return text;
+    }
+  } catch {
+    // text() can throw if candidates are empty — fall through
+  }
+
+  // Fallback: manual extraction from candidates
+  try {
+    const parts = result.response.candidates?.[0]?.content?.parts;
+    if (parts && parts.length > 0) {
+      const joined = parts.map((p) => p.text ?? '').join('');
+      if (IS_DEV) {
+        console.log('[gemini] Fallback extraction, length:', joined.length);
+        console.log('[gemini] Last 50 chars:', JSON.stringify(joined.slice(-50)));
+      }
+      return joined;
+    }
+  } catch {
+    // candidates malformed
+  }
+
+  return '';
+}
+
+/** Sentence-ending punctuation (includes markdown formatting chars). */
+const ENDING_PUNCT = /[.!?:)\]"'`*_\n]$/;
+
+/**
+ * Check if a response looks complete.
+ * Returns true if it appears truncated / cut off.
+ */
+function looksIncomplete(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 40) return true;
+  // If it doesn't end with any reasonable punctuation, it's likely cut off
+  if (!ENDING_PUNCT.test(trimmed)) return true;
+  return false;
+}
+
+/* ================================================================== */
 /*  Step A — Sufficiency Router                                       */
-/*  Cheap/fast call to decide if we need web context.                 */
 /* ================================================================== */
 
 const ROUTER_PROMPT = `You are a routing assistant. Given a news article and a user question, decide whether the article contains enough information to answer the question fully — or whether a web search is needed for definitions, background, context, or facts not in the article.
@@ -60,13 +119,11 @@ export async function checkSufficiency(
     const apiKey = getGeminiApiKey();
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Condense article to save tokens on the router call
     const condensed =
       articleText.length > 3_000
         ? articleText.slice(0, 3_000) + '\n…[article truncated for routing]'
         : articleText;
 
-    // Include last 2 chat messages for conversational context
     const recentHistory = chatHistory
       .slice(-2)
       .map((m) => `${m.role}: ${m.content}`)
@@ -101,10 +158,9 @@ export async function checkSufficiency(
       return DEFAULT_RESULT;
     }
 
-    const text = raceResult.response.text();
+    const text = extractGeminiText(raceResult);
     const parsed = JSON.parse(text) as SufficiencyResult;
 
-    // Validate shape
     if (typeof parsed.need_web !== 'boolean') return DEFAULT_RESULT;
     if (!Array.isArray(parsed.suggested_queries)) parsed.suggested_queries = [];
 
@@ -120,6 +176,18 @@ export async function checkSufficiency(
 /* ================================================================== */
 
 const SYSTEM_PROMPT = `You are a helpful tutor that helps users understand news articles.
+
+## Formatting Rules (ALWAYS follow)
+
+You MUST format every response clearly using Markdown:
+- Start with a direct 1–2 sentence answer.
+- Then use **bullet points** for explanations and details.
+- Use short paragraphs (max 3 lines each).
+- Use **bold** for key terms and section headers.
+- Use section headers (##, ###) ONLY when the answer has distinct parts (e.g. article info vs. web context).
+- Never output a single long wall of text.
+- Keep answers concise unless the user asks for depth.
+- Always finish your response with a complete sentence — never stop mid-word or mid-thought.
 
 ## Response Structure
 
@@ -153,6 +221,7 @@ Answer from the article. If the article is insufficient:
 
 const MAX_ARTICLE_CHARS = 15_000;
 const RESPONSE_TIMEOUT_MS = 30_000;
+const MAX_OUTPUT_TOKENS = 1000;
 
 export async function generateChatResponse(
   articleText: string,
@@ -177,6 +246,9 @@ export async function generateChatResponse(
   const model = genAI.getGenerativeModel({
     model: 'gemini-2.5-flash-lite',
     systemInstruction,
+    generationConfig: {
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    },
   });
 
   const history = chatHistory.map((msg) => ({
@@ -184,16 +256,46 @@ export async function generateChatResponse(
     parts: [{ text: msg.content }],
   }));
 
-  const chat = model.startChat({ history });
+  /** Single attempt: send message and extract text. */
+  async function attempt(): Promise<string> {
+    const chat = model.startChat({ history });
 
-  const resultPromise = chat.sendMessage(userMessage);
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('LLM_TIMEOUT')), RESPONSE_TIMEOUT_MS)
-  );
+    const resultPromise = chat.sendMessage(userMessage);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('LLM_TIMEOUT')), RESPONSE_TIMEOUT_MS)
+    );
+
+    const result = await Promise.race([resultPromise, timeoutPromise]);
+    return extractGeminiText(result);
+  }
 
   try {
-    const result = await Promise.race([resultPromise, timeoutPromise]);
-    return result.response.text();
+    let text = await attempt();
+
+    // Safety retry: if response looks incomplete, try once more
+    if (looksIncomplete(text)) {
+      if (IS_DEV) {
+        console.warn('[gemini] Response looks incomplete, retrying once…');
+      }
+      try {
+        const retryText = await attempt();
+        if (retryText.length > text.length && !looksIncomplete(retryText)) {
+          text = retryText;
+        } else if (retryText.length > text.length) {
+          // Retry is longer but still incomplete — use it anyway as it's better
+          text = retryText;
+        }
+      } catch {
+        // Retry failed — use original
+      }
+    }
+
+    // Final check: if still empty or very short, return a helpful message
+    if (!text || text.trim().length < 10) {
+      return 'The response appears incomplete. Please retry your question.';
+    }
+
+    return text;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
 

@@ -11,11 +11,20 @@ const PER_SECTION = 8; // ~8 per source → ~32 raw → ~30 after dedup
 
 /* ---------- fetch with retry (2 retries) ---------- */
 
-async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
+async function fetchWithRetry(
+  url: string,
+  retries = 2,
+  /** Pass true for feed requests that must always be fresh. */
+  noCache = false
+): Promise<Response> {
   let lastError: Error | null = null;
+  const fetchOptions: RequestInit = noCache
+    ? { cache: 'no-store' }
+    : {}; // article fetches can use default caching
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(url, { next: { revalidate: 300 } }); // 5-min cache
+      const res = await fetch(url, fetchOptions);
       if (res.ok) return res;
       if (res.status === 429) {
         throw new Error('QUOTA_EXCEEDED');
@@ -54,12 +63,16 @@ export async function fetchBalancedFeed(page: number = 1): Promise<GuardianArtic
 
   const sectionFetches = SECTIONS.map((section) =>
     fetchWithRetry(
-      `${base}/${section}?page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`
+      `${base}/${section}?page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+      2,
+      true // always fresh for feed
     ).then((r) => r.json())
   );
 
   const indiaFetch = fetchWithRetry(
-    `${base}/search?q=${INDIA_QUERY}&page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`
+    `${base}/search?q=${INDIA_QUERY}&page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+    2,
+    true // always fresh for feed
   ).then((r) => r.json());
 
   const results = await Promise.all([...sectionFetches, indiaFetch]);
@@ -77,7 +90,9 @@ export async function searchFeed(query: string, page: number = 1): Promise<Guard
   const base = getGuardianBaseUrl();
 
   const res = await fetchWithRetry(
-    `${base}/search?q=${encodeURIComponent(query)}&page=${page}&page-size=30&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`
+    `${base}/search?q=${encodeURIComponent(query)}&page=${page}&page-size=30&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+    2,
+    true // always fresh for feed
   );
   const data = await res.json();
   return (data.response?.results ?? []).map((item: unknown) => mapResult(item, 'Search'));

@@ -34,7 +34,7 @@ export default function FeedPage() {
         const params = new URLSearchParams({ page: String(pageNum) });
         if (searchQuery) params.set('q', searchQuery);
 
-        const res = await fetch(`/api/feed?${params}`);
+        const res = await fetch(`/api/feed?${params}`, { cache: 'no-store' });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || `Failed to load feed (${res.status})`);
