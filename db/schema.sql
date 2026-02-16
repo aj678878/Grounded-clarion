@@ -11,14 +11,42 @@ CREATE TABLE IF NOT EXISTS metric_events (
   payload       JSONB DEFAULT '{}'::jsonb
 );
 
--- Index for querying by session
 CREATE INDEX IF NOT EXISTS idx_metric_events_session ON metric_events (session_id);
-
--- Index for querying by article
 CREATE INDEX IF NOT EXISTS idx_metric_events_article ON metric_events (article_id);
-
--- Index for querying by thread
 CREATE INDEX IF NOT EXISTS idx_metric_events_thread ON metric_events (thread_id);
-
--- Index for querying by event type
 CREATE INDEX IF NOT EXISTS idx_metric_events_type ON metric_events (event_type);
+
+-- ----------------------------------------------------------------
+-- Chat traces: observability for every tutor-mode interaction
+-- ----------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS chat_traces (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  session_id              TEXT NOT NULL,
+  article_id              TEXT NOT NULL,
+  thread_id               TEXT NOT NULL,
+  user_message            TEXT NOT NULL,
+
+  router_need_web         BOOLEAN,
+  router_reason           TEXT,
+  router_suggested_queries JSONB,
+
+  search_called           BOOLEAN,
+  search_queries          JSONB,
+  search_sources          JSONB,
+  search_error            TEXT,
+
+  answer_text             TEXT NOT NULL,
+  citations_present       BOOLEAN,
+  answer_char_count       INT,
+
+  latency_router_ms       INT,
+  latency_search_ms       INT,
+  latency_answer_ms       INT,
+  latency_total_ms        INT
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_traces_created ON chat_traces (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_traces_session ON chat_traces (session_id);
+CREATE INDEX IF NOT EXISTS idx_chat_traces_article ON chat_traces (article_id);
