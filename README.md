@@ -1,8 +1,8 @@
-# Grounded
+# Clarion
 
 ## Overview
 
-Grounded is a web application that converts Guardian news articles into interactive learning experiences.
+Clarion is a web application that converts Guardian news articles into interactive learning experiences.
 
 Users can:
 - Browse a balanced news feed
@@ -10,7 +10,7 @@ Users can:
 - Ask contextual follow-up questions
 - Mark when their question has been clarified
 
-The purpose of the application is to improve understanding of complex financial, geopolitical, and technical news topics through conversational assistance grounded in the article text.
+The purpose of the application is to improve understanding of complex financial, geopolitical, and technical news topics through conversational assistance Clarion in the article text.
 
 ---
 
@@ -266,3 +266,4 @@ Traces are persisted even on errors (with `answer_text` prefixed `ERROR:`).
    - `DATABASE_URL` (auto-set if using Vercel Postgres integration)
    - `TAVILY_API_KEY` — enables autonomous web context lookup (optional, recommended)
 4. Deploy
+
