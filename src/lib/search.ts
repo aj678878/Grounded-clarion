@@ -57,6 +57,61 @@ function extractDomain(url: string): string {
   }
 }
 
+/* ---------- Query enhancement ---------- */
+
+const TITLE_STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+  'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'it', 'its', 'this', 'that', 'these', 'those',
+  'as', 'if', 'not', 'no', 'so', 'too', 'very', 'just', 'about', 'after',
+  'all', 'also', 'any', 'been', 'being', 'both', 'how', 'who', 'what',
+  'when', 'where', 'why', 'which', 'they', 'them', 'their', 'we', 'our',
+  'you', 'your', 'he', 'him', 'his', 'she', 'her', 'me', 'my', 'i',
+  'says', 'said', 'new', 'over', 'more', 'up', 'out', 'into', 'than',
+]);
+
+/**
+ * Extract 3–5 meaningful keywords from an article title (lowercase, no stopwords).
+ */
+function extractTitleKeywords(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !TITLE_STOPWORDS.has(w))
+    .slice(0, 5);
+}
+
+/**
+ * Build an enhanced search query from suggested queries, article title, and user question.
+ *
+ * enhanced_query = base_query + " " + context_keywords + " authoritative source"
+ * base_query = first suggested query (if available) else userQuestion
+ */
+export function enhanceSearchQuery(
+  suggestedQueries: string[],
+  articleTitle: string,
+  userQuestion: string
+): string[] {
+  const baseQuery =
+    suggestedQueries.length > 0 ? suggestedQueries[0] : userQuestion;
+
+  const contextKeywords = extractTitleKeywords(articleTitle);
+  const suffix = contextKeywords.length > 0
+    ? ' ' + contextKeywords.join(' ') + ' authoritative source'
+    : ' authoritative source';
+
+  const enhanced = baseQuery + suffix;
+
+  // Return the single enhanced query (plus the second suggested query if available, unmodified)
+  const result = [enhanced];
+  if (suggestedQueries.length > 1) {
+    result.push(suggestedQueries[1]);
+  }
+  return result;
+}
+
 /* ---------- Tavily search ---------- */
 
 const SEARCH_TIMEOUT_MS = 8_000;
@@ -89,7 +144,8 @@ export async function searchTavily(
           api_key: apiKey,
           query: q,
           max_results: 5,
-          search_depth: 'basic',
+          search_depth: 'advanced',
+          exclude_domains: ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.com', 'medium.com']
         }),
       }).then((r) => (r.ok ? r.json() : { results: [] }))
     );

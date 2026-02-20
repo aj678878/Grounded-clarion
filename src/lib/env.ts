@@ -21,6 +21,14 @@ export function getGuardianBaseUrl(): string {
   return process.env.GUARDIAN_API_BASE_URL || 'https://content.guardianapis.com';
 }
 
+export function getAnthropicApiKey(): string {
+  return getEnvVar('ANTHROPIC_API_KEY');
+}
+
+/** @deprecated — kept for backward compatibility; use getAnthropicApiKey(). */
 export function getGeminiApiKey(): string {
-  return getEnvVar('GEMINI_API_KEY');
+  // Try Gemini key first for legacy compat, fall back to Anthropic
+  const gemini = process.env.GEMINI_API_KEY;
+  if (gemini) return gemini;
+  return getEnvVar('ANTHROPIC_API_KEY');
 }

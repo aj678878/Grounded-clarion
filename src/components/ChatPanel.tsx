@@ -8,6 +8,7 @@ import Button from './Button';
 
 interface ChatPanelProps {
   articleId: string;
+  articleTitle?: string;
   articleText: string;
 }
 
@@ -30,7 +31,7 @@ async function logMetric(event: {
   }
 }
 
-export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
+export default function ChatPanel({ articleId, articleTitle, articleText }: ChatPanelProps) {
   const [messages, setMessages] = useState<(ChatMessage & { threadId: string })[]>([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export default function ChatPanel({ articleId, articleText }: ChatPanelProps) {
         body: JSON.stringify({
           session_id: sessionId,
           article_id: articleId,
+          article_title: articleTitle ?? '',
           articleText,
           chatHistory: threadHistory,
           userMessage: text,

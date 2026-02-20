@@ -39,9 +39,14 @@ export default function Header({ backHref, backLabel }: HeaderProps) {
           </h1>
         </Link>
 
-        <div className="ml-auto text-xs font-body text-gray-400">
-          Powered by The Guardian &amp; Gemini
-        </div>
+        <a
+          href="https://github.com/aj678878/Grounded-clarion/tree/main"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-xs font-body text-gray-400 hover:text-gray-900 transition-colors"
+        >
+          Github
+        </a>
       </div>
     </header>
   );

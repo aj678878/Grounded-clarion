@@ -9,11 +9,12 @@
 /* ------------------------------------------------------------------ */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { checkSufficiency, generateChatResponse } from '@/lib/gemini';
+import { checkSufficiency, generateChatResponse, repairSourcesInAnswer } from '@/lib/gemini';
 import {
   searchTavily,
   isSearchAvailable,
   formatSearchResultsForLLM,
+  enhanceSearchQuery,
 } from '@/lib/search';
 import { insertChatTrace, type ChatTrace } from '@/lib/traces';
 import { ChatRequest } from '@/types';
@@ -21,6 +22,31 @@ import { ChatRequest } from '@/types';
 /** Detect citations in the answer: at least one markdown link [text](url). */
 function hasCitations(text: string): boolean {
   return /\[.+?\]\(https?:\/\/.+?\)/.test(text);
+}
+
+/** Check if answer has a Sources section near the end (last 30%) with at least one URL and no [1],[2] markers. */
+function hasValidSourcesSection(text: string): boolean {
+  // Reject if numeric markers like [1], [2] are present anywhere
+  if (/\[\d+\]/.test(text)) return false;
+
+  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
+  let lastHeaderIndex = -1;
+  let match: RegExpExecArray | null;
+  while ((match = headerPattern.exec(text)) !== null) {
+    lastHeaderIndex = match.index;
+  }
+  if (lastHeaderIndex < 0) return false;
+  if (lastHeaderIndex < text.length * 0.7) return false;
+  const sectionText = text.slice(lastHeaderIndex);
+  return /https?:\/\/\S+/.test(sectionText);
+}
+
+/** Build deterministic fallback Sources section from Tavily results. */
+function buildFallbackSources(sources: { title: string; url: string }[]): string {
+  if (sources.length === 0) return '';
+  const top = sources.slice(0, 2);
+  const lines = top.map((s, i) => `${i + 1}. ${s.title} – ${s.url}`);
+  return `\n\n**Sources:**\n${lines.join('\n')}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -63,6 +89,7 @@ export async function POST(request: NextRequest) {
     articleId = String(body.article_id ?? '');
     threadId = String(body.thread_id ?? '');
     userMessage = body.userMessage;
+    const articleTitle = String(body.article_title ?? '');
 
     const sanitizedHistory = body.chatHistory.map((m) => ({
       role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -96,7 +123,11 @@ export async function POST(request: NextRequest) {
       // ---- Step B: Tavily search (if needed) ----
       if (routing.need_web && routing.suggested_queries.length > 0) {
         searchCalled = true;
-        searchQueries = routing.suggested_queries.slice(0, 2);
+        searchQueries = enhanceSearchQuery(
+          routing.suggested_queries,
+          articleTitle,
+          body.userMessage
+        );
 
         const searchStart = Date.now();
         try {
@@ -127,6 +158,27 @@ export async function POST(request: NextRequest) {
       searchContext
     );
     latencyAnswerMs = Date.now() - answerStart;
+
+    // ---- Step C.2: Validate Sources section (when web search was used) ----
+    if (searchCalled && searchSources && searchSources.length > 0) {
+      if (!hasValidSourcesSection(answerText)) {
+        console.log('[chat] Answer missing valid Sources section, attempting repair…');
+
+        try {
+          const repaired = await repairSourcesInAnswer(answerText, searchContext);
+          if (hasValidSourcesSection(repaired)) {
+            answerText = repaired;
+            console.log('[chat] Sources repair succeeded.');
+          } else {
+            console.log('[chat] Repair still missing Sources, appending fallback.');
+            answerText += buildFallbackSources(searchSources);
+          }
+        } catch {
+          console.log('[chat] Repair error, appending fallback Sources.');
+          answerText += buildFallbackSources(searchSources);
+        }
+      }
+    }
 
     // Append timeout note if search failed
     if (searchTimedOut) {
@@ -193,7 +245,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'LLM_TIMEOUT' }, { status: 504 });
     }
     if (message === 'QUOTA_EXCEEDED') {
-      return NextResponse.json({ error: 'QUOTA_EXCEEDED' }, { status: 429 });
+      return NextResponse.json(
+        { error: 'Rate limit hit, please retry in ~15s.' },
+        { status: 429 }
+      );
     }
     if (message === 'TOKEN_OVERFLOW') {
       return NextResponse.json({ error: 'TOKEN_OVERFLOW' }, { status: 413 });

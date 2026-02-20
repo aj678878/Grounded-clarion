@@ -5,3 +5,9 @@ out/
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Eval artifacts
+scripts/eval/.cache/
+scripts/eval/eval_results.json
+scripts/eval/eval_results.partial.json
+scripts/eval/eval_summary.md

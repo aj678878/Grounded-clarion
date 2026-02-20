@@ -101,12 +101,12 @@ export default function ArticleView({ article }: ArticleViewProps) {
           className="hidden md:flex flex-col border-l border-gray-200 bg-white"
           style={{ width: '340px', minWidth: '300px', maxWidth: '400px' }}
         >
-          <ChatPanel articleId={article.id} articleText={plainText} />
+          <ChatPanel articleId={article.id} articleTitle={article.webTitle} articleText={plainText} />
         </aside>
       </div>
 
       {/* Mobile chat FAB + drawer */}
-      <MobileChatToggle articleId={article.id} articleText={plainText} />
+      <MobileChatToggle articleId={article.id} articleTitle={article.webTitle} articleText={plainText} />
     </div>
   );
 }
@@ -117,9 +117,11 @@ export default function ArticleView({ article }: ArticleViewProps) {
 
 function MobileChatToggle({
   articleId,
+  articleTitle,
   articleText,
 }: {
   articleId: string;
+  articleTitle: string;
   articleText: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -146,7 +148,7 @@ function MobileChatToggle({
       {/* Drawer */}
       {open && (
         <div className="fixed inset-x-0 bottom-0 z-30 h-[70vh] md:hidden border-t border-gray-200 shadow-2xl rounded-t-xl overflow-hidden bg-white">
-          <ChatPanel articleId={articleId} articleText={articleText} />
+          <ChatPanel articleId={articleId} articleTitle={articleTitle} articleText={articleText} />
         </div>
       )}
     </>

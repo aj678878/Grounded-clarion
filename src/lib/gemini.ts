@@ -1,76 +1,23 @@
 /* ------------------------------------------------------------------ */
-/*  Gemini API — sufficiency router + grounded tutor response         */
+/*  LLM integration — sufficiency router + grounded tutor response    */
+/*                                                                    */
+/*  Backed by Anthropic (Claude) via the shared LLM provider.         */
+/*  File kept as gemini.ts to avoid renaming all imports.             */
 /* ------------------------------------------------------------------ */
 
-import { GoogleGenerativeAI, type GenerateContentResult } from '@google/generative-ai';
-import { getGeminiApiKey } from './env';
+import { generateText, generateJSON } from '@/lib/llm';
 import { ChatMessage } from '@/types';
-
-/* ================================================================== */
-/*  Shared: robust text extraction + completeness check               */
-/* ================================================================== */
-
-const IS_DEV = process.env.NODE_ENV === 'development';
-
-/**
- * Robustly extract the full text from a Gemini result.
- * 1. Uses result.response.text() if available.
- * 2. Falls back to joining ALL parts of the top candidate.
- * Never truncates.
- */
-function extractGeminiText(result: GenerateContentResult): string {
-  try {
-    // Primary: SDK helper (joins all parts internally)
-    const text = result.response.text();
-    if (text) {
-      if (IS_DEV) {
-        console.log('[gemini] Extracted text length:', text.length);
-        console.log('[gemini] Last 50 chars:', JSON.stringify(text.slice(-50)));
-      }
-      return text;
-    }
-  } catch {
-    // text() can throw if candidates are empty — fall through
-  }
-
-  // Fallback: manual extraction from candidates
-  try {
-    const parts = result.response.candidates?.[0]?.content?.parts;
-    if (parts && parts.length > 0) {
-      const joined = parts.map((p) => p.text ?? '').join('');
-      if (IS_DEV) {
-        console.log('[gemini] Fallback extraction, length:', joined.length);
-        console.log('[gemini] Last 50 chars:', JSON.stringify(joined.slice(-50)));
-      }
-      return joined;
-    }
-  } catch {
-    // candidates malformed
-  }
-
-  return '';
-}
-
-/** Sentence-ending punctuation (includes markdown formatting chars). */
-const ENDING_PUNCT = /[.!?:)\]"'`*_\n]$/;
-
-/**
- * Check if a response looks complete.
- * Returns true if it appears truncated / cut off.
- */
-function looksIncomplete(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed.length < 40) return true;
-  // If it doesn't end with any reasonable punctuation, it's likely cut off
-  if (!ENDING_PUNCT.test(trimmed)) return true;
-  return false;
-}
 
 /* ================================================================== */
 /*  Step A — Sufficiency Router                                       */
 /* ================================================================== */
 
-const ROUTER_PROMPT = `You are a routing assistant. Given a news article and a user question, decide whether the article contains enough information to answer the question fully — or whether a web search is needed for definitions, background, context, or facts not in the article.
+const ROUTER_PROMPT = `You are a routing assistant for a news Q&A system.
+
+Your task: decide whether the ARTICLE EXCERPT alone contains enough information to answer the user's question accurately and completely.
+
+You are NOT deciding whether web search would improve the answer.
+You are deciding whether web search is REQUIRED.
 
 Output ONLY valid JSON with this exact schema:
 {
@@ -80,21 +27,40 @@ Output ONLY valid JSON with this exact schema:
   "must_cite": boolean
 }
 
-Rules:
-- need_web = true if:
-  • The user asks "what is X", "who is X", "explain X", definitions, background, agendas, history, "why does X matter", or any context question the article does not explicitly answer.
-  • The article does not contain sufficient facts/figures to answer without speculation.
-  • The user references an entity, organisation, concept, or policy not explained in the article.
-- need_web = false if:
-  • The article contains all facts needed to answer the question.
-  • The question is about the article's narrative, summary, or opinion.
-- suggested_queries: 1–2 concise Google-style search queries to find the missing context. Make them specific and factual.
-- must_cite: true if the answer will include external facts that must be cited.
-- reason: one-sentence explanation of why web search is or isn't needed.
+Decision Rules:
 
-Do NOT output anything except the JSON object.`;
+Set need_web = true ONLY if:
+- The question requires factual information that is NOT present in the article excerpt.
+- The user asks for:
+    • Definitions of entities not explained in the article
+    • Background history not described
+    • Legal/regulatory details not mentioned
+    • Current status beyond the article's timeframe
+    • Quantitative data not included in the excerpt
+- The answer would require introducing NEW factual claims not grounded in the article.
 
-const ROUTER_TIMEOUT_MS = 5_000;
+Set need_web = false if:
+- The article excerpt contains enough information to answer through reasoning, explanation, or synthesis.
+- The user asks about implications, significance, risks, impacts, incentives, or interpretation that can be logically derived from the article.
+- The question is analytical rather than factual.
+
+Important:
+- Do NOT trigger web search just because additional context might exist.
+- Only trigger if the answer would require adding facts not in the excerpt.
+
+must_cite:
+- true ONLY if need_web = true.
+- false otherwise.
+
+suggested_queries:
+- Only provide 1–2 short factual queries if need_web = true.
+- Leave empty array if need_web = false.
+
+reason:
+- One short sentence explaining why the article is or is not sufficient.
+
+Do NOT output anything except the JSON object.
+`;
 
 export interface SufficiencyResult {
   need_web: boolean;
@@ -116,9 +82,6 @@ export async function checkSufficiency(
   chatHistory: ChatMessage[]
 ): Promise<SufficiencyResult> {
   try {
-    const apiKey = getGeminiApiKey();
-    const genAI = new GoogleGenerativeAI(apiKey);
-
     const condensed =
       articleText.length > 3_000
         ? articleText.slice(0, 3_000) + '\n…[article truncated for routing]'
@@ -129,16 +92,7 @@ export async function checkSufficiency(
       .map((m) => `${m.role}: ${m.content}`)
       .join('\n');
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-      systemInstruction: ROUTER_PROMPT,
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: 200,
-      },
-    });
-
-    const prompt = [
+    const userPrompt = [
       recentHistory ? `Recent conversation:\n${recentHistory}\n` : '',
       `Article (condensed):\n${condensed}\n`,
       `User question: ${userMessage}`,
@@ -146,25 +100,31 @@ export async function checkSufficiency(
       .filter(Boolean)
       .join('\n');
 
-    const resultPromise = model.generateContent(prompt);
-    const timeoutPromise = new Promise<'TIMEOUT'>((resolve) =>
-      setTimeout(() => resolve('TIMEOUT'), ROUTER_TIMEOUT_MS)
-    );
+    const model = process.env.MODEL_ROUTER ?? 'claude-3-haiku-20240307';
 
-    const raceResult = await Promise.race([resultPromise, timeoutPromise]);
+    const result = await generateJSON({
+      model,
+      system: ROUTER_PROMPT,
+      user: userPrompt,
+      maxTokens: 200,
+    });
 
-    if (raceResult === 'TIMEOUT') {
-      console.warn('[router] Sufficiency check timed out');
+    if (!result.ok || !result.data) {
+      console.warn('[router] JSON parse failed:', result.error);
       return DEFAULT_RESULT;
     }
 
-    const text = extractGeminiText(raceResult);
-    const parsed = JSON.parse(text) as SufficiencyResult;
-
+    const parsed = result.data;
     if (typeof parsed.need_web !== 'boolean') return DEFAULT_RESULT;
-    if (!Array.isArray(parsed.suggested_queries)) parsed.suggested_queries = [];
 
-    return parsed;
+    return {
+      need_web: parsed.need_web,
+      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+      suggested_queries: Array.isArray(parsed.suggested_queries)
+        ? (parsed.suggested_queries as string[])
+        : [],
+      must_cite: typeof parsed.must_cite === 'boolean' ? parsed.must_cite : false,
+    };
   } catch (err) {
     console.error('[router] Sufficiency check failed:', err);
     return DEFAULT_RESULT;
@@ -192,19 +152,32 @@ You MUST format every response clearly using Markdown:
 ## Response Structure
 
 **When web search results ARE provided:**
-Structure your response with clear sections:
+
+You MUST structure your response as:
 
 **From the article:**
-(Information drawn directly from the article text. Reference specific parts.)
+- Grounded explanation based only on the article excerpt.
 
-**Additional context:**
-(Information from the web search results. Cite each fact with its source as a markdown link: [Source Name](URL).)
+**Additional context (from web search):**
+- Include only facts from the provided search results.
+- Do NOT introduce any other external information.
+
+After the explanation, you MUST include a final section:
+
+**Sources:**
+1. [Source Title] – URL
+2. [Source Title] – URL
+
+Rules for Sources section:
+- Only include sources that were actually used.
+- Use the exact title and URL from the provided search results.
+- Do NOT omit this section if web search was used.
+- Do NOT inline URLs in the body instead of this section.
 
 **When NO web search results are provided:**
-Answer from the article. If the article is insufficient:
-- You may add brief, commonly-known factual background.
-- Label it: **General background (no web lookup performed):**
-- Keep it minimal and factual.
+Answer from the article. If the article is insufficient and no web results are provided:
+- Clearly state: "The article does not contain enough information to fully answer this question."
+- Do NOT introduce external facts without web search.
 
 ## Core Rules
 1. Ground answers in the article text first — always start there.
@@ -219,9 +192,25 @@ Answer from the article. If the article is insufficient:
 - If sources conflict, state both viewpoints and cite each.
 - Wikipedia is acceptable only for basic definitions.`;
 
-const MAX_ARTICLE_CHARS = 15_000;
-const RESPONSE_TIMEOUT_MS = 30_000;
-const MAX_OUTPUT_TOKENS = 1000;
+const MAX_ARTICLE_CHARS = 10_000;
+const MAX_OUTPUT_TOKENS = 900;
+
+const STRICT_SOURCES_INSTRUCTION = `
+
+STRICT REQUIREMENT:
+Because web search was performed, your answer is INVALID unless it ends with:
+
+**Sources:**
+1. [Source Title] – https://actual-url.com
+2. [Source Title] – https://actual-url.com
+
+Rules:
+- Include ONLY sources you actually used from the provided web results.
+- Each entry MUST include a full URL from the provided web results.
+- Put the Sources section at the VERY END of the answer (last lines).
+- Do NOT use [1], [2], [3] or any numeric reference markers anywhere in the answer body.
+- Do NOT inline citations as bracketed numbers. All citation URLs go in the Sources section only.
+- Do NOT cite Quora/Facebook/Reddit unless no other sources exist; if used, clearly label as low-credibility.`;
 
 export async function generateChatResponse(
   articleText: string,
@@ -229,68 +218,33 @@ export async function generateChatResponse(
   userMessage: string,
   searchContext: string = ''
 ): Promise<string> {
-  const apiKey = getGeminiApiKey();
-  const genAI = new GoogleGenerativeAI(apiKey);
-
   const truncatedArticle =
     articleText.length > MAX_ARTICLE_CHARS
       ? articleText.slice(0, MAX_ARTICLE_CHARS) + '\n\n[Article truncated for length]'
       : articleText;
 
-  let systemInstruction = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
-
+  let system = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
   if (searchContext) {
-    systemInstruction += `\n\n${searchContext}`;
+    system += `\n\n${searchContext}`;
+    system += STRICT_SOURCES_INSTRUCTION;
   }
 
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-lite',
-    systemInstruction,
-    generationConfig: {
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
-    },
-  });
-
-  const history = chatHistory.map((msg) => ({
-    role: msg.role === 'user' ? ('user' as const) : ('model' as const),
-    parts: [{ text: msg.content }],
-  }));
-
-  /** Single attempt: send message and extract text. */
-  async function attempt(): Promise<string> {
-    const chat = model.startChat({ history });
-
-    const resultPromise = chat.sendMessage(userMessage);
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('LLM_TIMEOUT')), RESPONSE_TIMEOUT_MS)
-    );
-
-    const result = await Promise.race([resultPromise, timeoutPromise]);
-    return extractGeminiText(result);
-  }
+  const model = process.env.MODEL_TUTOR ?? 'claude-3-haiku-20240307';
 
   try {
-    let text = await attempt();
+    const history = chatHistory.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
 
-    // Safety retry: if response looks incomplete, try once more
-    if (looksIncomplete(text)) {
-      if (IS_DEV) {
-        console.warn('[gemini] Response looks incomplete, retrying once…');
-      }
-      try {
-        const retryText = await attempt();
-        if (retryText.length > text.length && !looksIncomplete(retryText)) {
-          text = retryText;
-        } else if (retryText.length > text.length) {
-          // Retry is longer but still incomplete — use it anyway as it's better
-          text = retryText;
-        }
-      } catch {
-        // Retry failed — use original
-      }
-    }
+    const text = await generateText({
+      model,
+      system,
+      user: userMessage,
+      maxTokens: MAX_OUTPUT_TOKENS,
+      history,
+    });
 
-    // Final check: if still empty or very short, return a helpful message
     if (!text || text.trim().length < 10) {
       return 'The response appears incomplete. Please retry your question.';
     }
@@ -299,16 +253,65 @@ export async function generateChatResponse(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
 
-    if (message === 'LLM_TIMEOUT') throw new Error('LLM_TIMEOUT');
-    if (message.includes('quota') || message.includes('429')) throw new Error('QUOTA_EXCEEDED');
+    if (message.includes('timeout') || message.includes('TIMEOUT')) {
+      throw new Error('LLM_TIMEOUT');
+    }
     if (
-      message.includes('token') ||
-      message.includes('context length') ||
-      message.includes('too long')
+      message.includes('429') ||
+      message.includes('rate_limit') ||
+      message.includes('quota')
     ) {
+      throw new Error('QUOTA_EXCEEDED');
+    }
+    if (message.includes('token') || message.includes('too long')) {
       throw new Error('TOKEN_OVERFLOW');
     }
 
     throw err;
+  }
+}
+
+/* ================================================================== */
+/*  Sources repair — called from route when validation fails          */
+/* ================================================================== */
+
+export async function repairSourcesInAnswer(
+  answer: string,
+  searchContext: string
+): Promise<string> {
+  const model = process.env.MODEL_TUTOR ?? 'claude-3-haiku-20240307';
+
+  const repairSystem = `You are a text editor. Your ONLY job is to:
+1. Remove any [1], [2], [3] numeric reference markers from the answer body.
+2. Add a proper **Sources:** section at the end with URLs from the provided web search results.
+Do NOT change the substantive content of the answer.`;
+
+  const repairUser = `Here is the answer that needs a Sources section added at the end:
+
+---
+${answer}
+---
+
+Here are the web search results that were available:
+
+${searchContext}
+
+TASK: Return the COMPLETE original answer with these fixes:
+1. Remove any [1], [2], [3] numeric reference markers from the body text.
+2. Append a proper "**Sources:**" section at the very end. Each source entry must include: number, title, and full URL.
+Only include sources that were referenced in the answer. If unclear which were used, include the top 2 most relevant.
+
+Return ONLY the full corrected answer text — nothing else.`;
+
+  try {
+    const repaired = await generateText({
+      model,
+      system: repairSystem,
+      user: repairUser,
+      maxTokens: MAX_OUTPUT_TOKENS + 200,
+    });
+    return repaired || answer;
+  } catch {
+    return answer;
   }
 }

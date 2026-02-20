@@ -43,6 +43,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   session_id: string;
   article_id: string;
+  article_title?: string;
   articleText: string;
   chatHistory: ChatMessage[];
   userMessage: string;
