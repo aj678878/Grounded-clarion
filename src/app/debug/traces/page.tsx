@@ -226,6 +226,30 @@ function TraceCard({ trace }: { trace: ChatTrace }) {
             {trace.answer_text}
           </pre>
         </details>
+
+        {trace.debug_flow && (
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700">
+              Show deep debug flow ({formatBytes(jsonSize(trace.debug_flow))})
+            </summary>
+            <div className="mt-2 space-y-2">
+              {renderDebugStage('request_meta', (trace.debug_flow as Record<string, unknown>).request_meta)}
+              {renderDebugStage('incoming_payload', (trace.debug_flow as Record<string, unknown>).incoming_payload)}
+              {renderDebugStage('sanitized', (trace.debug_flow as Record<string, unknown>).sanitized)}
+              {renderDebugStage('router_input', (trace.debug_flow as Record<string, unknown>).router_input)}
+              {renderDebugStage('router_output', (trace.debug_flow as Record<string, unknown>).router_output)}
+              {renderDebugStage('search_plan', (trace.debug_flow as Record<string, unknown>).search_plan)}
+              {renderDebugStage('tavily_request', (trace.debug_flow as Record<string, unknown>).tavily_request)}
+              {renderDebugStage('tavily_raw_response', (trace.debug_flow as Record<string, unknown>).tavily_raw_response)}
+              {renderDebugStage('search_transform', (trace.debug_flow as Record<string, unknown>).search_transform)}
+              {renderDebugStage('search_context_output', (trace.debug_flow as Record<string, unknown>).search_context_output)}
+              {renderDebugStage('answer_input', (trace.debug_flow as Record<string, unknown>).answer_input)}
+              {renderDebugStage('answer_output', (trace.debug_flow as Record<string, unknown>).answer_output)}
+              {renderDebugStage('timing', (trace.debug_flow as Record<string, unknown>).timing)}
+              {renderDebugStage('final', (trace.debug_flow as Record<string, unknown>).final)}
+            </div>
+          </details>
+        )}
       </div>
     </div>
   );
@@ -283,5 +307,41 @@ function formatTimestamp(ts?: string): string {
     });
   } catch {
     return ts;
+  }
+}
+
+function jsonSize(value: unknown): number {
+  try {
+    return JSON.stringify(value).length;
+  } catch {
+    return 0;
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function renderDebugStage(stage: string, payload: unknown) {
+  if (payload === undefined || payload === null) return null;
+  return (
+    <details key={stage} className="rounded border border-gray-200 bg-gray-50">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-700">
+        {stage} ({formatBytes(jsonSize(payload))})
+      </summary>
+      <pre className="max-h-72 overflow-auto border-t border-gray-200 bg-white p-3 text-xs whitespace-pre-wrap text-gray-700">
+        {safeStringify(payload)}
+      </pre>
+    </details>
+  );
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
   }
 }

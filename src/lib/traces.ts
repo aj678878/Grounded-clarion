@@ -42,6 +42,7 @@ export interface ChatTrace {
   latency_search_ms: number | null;
   latency_answer_ms: number | null;
   latency_total_ms: number;
+  debug_flow?: Record<string, unknown> | null;
 }
 
 /* ---------- Insert ---------- */
@@ -60,13 +61,15 @@ export async function insertChatTrace(trace: ChatTrace): Promise<string | null> 
         router_need_web, router_reason, router_suggested_queries,
         search_called, search_queries, search_sources, search_error,
         answer_text, citations_present, answer_char_count,
-        latency_router_ms, latency_search_ms, latency_answer_ms, latency_total_ms
+        latency_router_ms, latency_search_ms, latency_answer_ms, latency_total_ms,
+        debug_flow
       ) VALUES (
         $1, $2, $3, $4,
         $5, $6, $7::jsonb,
         $8, $9::jsonb, $10::jsonb, $11,
         $12, $13, $14,
-        $15, $16, $17, $18
+        $15, $16, $17, $18,
+        $19::jsonb
       ) RETURNING id`,
       [
         trace.session_id,
@@ -87,6 +90,7 @@ export async function insertChatTrace(trace: ChatTrace): Promise<string | null> 
         trace.latency_search_ms,
         trace.latency_answer_ms,
         trace.latency_total_ms,
+        JSON.stringify(trace.debug_flow ?? null),
       ]
     );
     return rows[0]?.id ?? null;

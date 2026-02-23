@@ -30,6 +30,55 @@ export interface SearchResult {
   extractionOk?: boolean; // true if full-text extraction succeeded
 }
 
+export interface TavilyQueryRequestPayload {
+  api_key: string;
+  query: string;
+  max_results: number;
+  search_depth: string;
+  exclude_domains: string[];
+}
+
+export interface SearchDebugSnapshot {
+  queries_run: string[];
+  tavily_request_payloads: TavilyQueryRequestPayload[];
+  tavily_raw: unknown[];
+  candidates_pre_filter: Array<{
+    queryIndex: number;
+    url: string;
+    title: string;
+    snippet: string;
+  }>;
+  skips: {
+    missing_url: number;
+    blocked_domain: number;
+    duplicate_canonical: number;
+  };
+  scores: Array<{
+    url: string;
+    domain: string;
+    canonicalUrl: string;
+    domainCredScore: number;
+    relevanceScore: number;
+    blendedScore: number;
+    blocked: boolean;
+  }>;
+  selected: Array<{
+    title: string;
+    url: string;
+    source: string;
+    score: number;
+    relevanceScore: number;
+    blendedScore: number;
+  }>;
+  enrichment: Array<{
+    url: string;
+    source: string;
+    extractionOk: boolean;
+    extractedLength: number;
+    snippetLength: number;
+  }>;
+}
+
 export function asString(x: unknown): string {
   return typeof x === 'string' ? x : '';
 }
@@ -525,30 +574,60 @@ const TOP_N = 5;
 export async function searchTavily(
   queries: string[],
   userQuestion: string = ''
-): Promise<{ results: SearchResult[]; timedOut: boolean }> {
+): Promise<{ results: SearchResult[]; timedOut: boolean; debug?: SearchDebugSnapshot }> {
   const apiKey = process.env.TAVILY_API_KEY ?? '';
   if (!apiKey) {
-    return { results: [], timedOut: false };
+    return { results: [], timedOut: false, debug: undefined };
   }
 
   const toRun = queries.slice(0, 2);
+  const tavilyRequestPayloads: TavilyQueryRequestPayload[] = toRun.map((q) => ({
+    api_key: apiKey,
+    query: q,
+    max_results: 10,
+    search_depth: 'advanced',
+    exclude_domains: ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.com', 'medium.com'],
+  }));
+
+  const searchDebug: SearchDebugSnapshot = {
+    queries_run: [...toRun],
+    tavily_request_payloads: tavilyRequestPayloads,
+    tavily_raw: [],
+    candidates_pre_filter: [],
+    skips: {
+      missing_url: 0,
+      blocked_domain: 0,
+      duplicate_canonical: 0,
+    },
+    scores: [],
+    selected: [],
+    enrichment: [],
+  };
+
   const timeout = new Promise<'TIMEOUT'>((resolve) =>
     setTimeout(() => resolve('TIMEOUT'), SEARCH_TIMEOUT_MS)
   );
 
   try {
-    const searchPromises = toRun.map((q) =>
+    const searchPromises = tavilyRequestPayloads.map((payload) =>
       fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: apiKey,
-          query: q,
-          max_results: 10,
-          search_depth: 'advanced',
-          exclude_domains: ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.com', 'medium.com'],
-        }),
-      }).then((r) => (r.ok ? r.json() : { results: [] }))
+        body: JSON.stringify(payload),
+      })
+        .then(async (r) => {
+          if (r.ok) return r.json();
+          const body = await r.text().catch(() => '');
+          return {
+            results: [],
+            __http_status: r.status,
+            __error_body: body.slice(0, 1000),
+          };
+        })
+        .catch((err) => ({
+          results: [],
+          __fetch_error: err instanceof Error ? err.message : String(err),
+        }))
     );
 
     const raceResult = await Promise.race([
@@ -558,8 +637,10 @@ export async function searchTavily(
 
     if (raceResult === 'TIMEOUT') {
       console.warn('[search] Tavily timed out after', SEARCH_TIMEOUT_MS, 'ms');
-      return { results: [], timedOut: true };
+      return { results: [], timedOut: true, debug: searchDebug };
     }
+
+    searchDebug.tavily_raw = raceResult as unknown[];
 
     // ---- Merge + canonicalize + local blocklist + dedupe ----
     const seenCanonical = new Set<string>();
@@ -577,12 +658,28 @@ export async function searchTavily(
 
     const allResults: ScoredResult[] = [];
 
-    for (const data of raceResult) {
+    for (let dataIdx = 0; dataIdx < raceResult.length; dataIdx++) {
+      const data = raceResult[dataIdx];
       for (const r of (data.results ?? [])) {
+        const candidateTitle = asString((r as { title?: unknown }).title);
+        const candidateSnippet = asString(
+          (r as { snippet?: unknown; content?: unknown; description?: unknown }).snippet ??
+            (r as { snippet?: unknown; content?: unknown; description?: unknown }).content ??
+            (r as { snippet?: unknown; content?: unknown; description?: unknown }).description
+        );
+
+        searchDebug.candidates_pre_filter.push({
+          queryIndex: dataIdx,
+          url: asString((r as { url?: unknown }).url),
+          title: candidateTitle,
+          snippet: candidateSnippet,
+        });
+
         if (!hasUrl((r as { url?: unknown }).url)) {
+          searchDebug.skips.missing_url += 1;
           if (SEARCH_DEBUG) {
             debugLog('Skipping Tavily result due to missing/invalid URL', {
-              title: asString((r as { title?: unknown }).title).slice(0, 80),
+              title: candidateTitle.slice(0, 80),
             });
           }
           continue;
@@ -593,12 +690,8 @@ export async function searchTavily(
         const blocked = isBlocked(rawUrl);
         const domainCredScore = scoreDomain(rawUrl);
 
-        const title = asString((r as { title?: unknown }).title);
-        const snippet = asString(
-          (r as { snippet?: unknown; content?: unknown; description?: unknown }).snippet ??
-          (r as { snippet?: unknown; content?: unknown; description?: unknown }).content ??
-          (r as { snippet?: unknown; content?: unknown; description?: unknown }).description
-        );
+        const title = candidateTitle;
+        const snippet = candidateSnippet;
         const resultText = `${title} ${snippet}`;
         const relevanceScore = userQuestion
           ? blendRelevance(userQuestion, resultText)
@@ -606,6 +699,16 @@ export async function searchTavily(
 
         const normalizedDomain = domainCredScore / 3;
         const blendedScore = 0.65 * normalizedDomain + 0.35 * relevanceScore;
+
+        searchDebug.scores.push({
+          url: rawUrl,
+          domain: extractDomain(rawUrl),
+          canonicalUrl: canonical,
+          domainCredScore,
+          relevanceScore,
+          blendedScore,
+          blocked,
+        });
 
         if (SEARCH_DEBUG) {
           debugCandidates.push({
@@ -619,8 +722,14 @@ export async function searchTavily(
           });
         }
 
-        if (blocked) continue;
-        if (seenCanonical.has(canonical)) continue;
+        if (blocked) {
+          searchDebug.skips.blocked_domain += 1;
+          continue;
+        }
+        if (seenCanonical.has(canonical)) {
+          searchDebug.skips.duplicate_canonical += 1;
+          continue;
+        }
         seenCanonical.add(canonical);
 
         allResults.push({
@@ -638,6 +747,14 @@ export async function searchTavily(
     // ---- Sort by blendedScore desc, take top N ----
     allResults.sort((a, b) => b.blendedScore - a.blendedScore);
     const selected = allResults.slice(0, TOP_N);
+    searchDebug.selected = selected.map((s) => ({
+      title: s.title,
+      url: s.url,
+      source: s.source,
+      score: s.score,
+      relevanceScore: s.relevanceScore,
+      blendedScore: s.blendedScore,
+    }));
 
     debugLog(`${allResults.length} candidates → ${selected.length} selected (blended ranking)`);
 
@@ -652,6 +769,13 @@ export async function searchTavily(
     }));
 
     const enrichedResults = await enrichWithFullText(baseResults);
+    searchDebug.enrichment = enrichedResults.map((r) => ({
+      url: r.url,
+      source: r.source,
+      extractionOk: Boolean(r.extractionOk),
+      extractedLength: r.content.length,
+      snippetLength: r.snippet.length,
+    }));
 
     // ---- Debug log ----
     if (SEARCH_DEBUG) {
@@ -682,10 +806,10 @@ export async function searchTavily(
       }
     }
 
-    return { results: enrichedResults, timedOut: false };
+    return { results: enrichedResults, timedOut: false, debug: searchDebug };
   } catch (err) {
     console.error('[search] Tavily error:', err);
-    return { results: [], timedOut: false };
+    return { results: [], timedOut: false, debug: searchDebug };
   }
 }
 

@@ -69,6 +69,18 @@ export interface SufficiencyResult {
   must_cite: boolean;
 }
 
+export interface SufficiencyDebugInfo {
+  article_excerpt_used: string;
+  recent_history_used: string;
+  user_prompt: string;
+  model: string;
+  max_tokens: number;
+  raw_output: string;
+  parse_ok: boolean;
+  parse_error: string;
+  used_default: boolean;
+}
+
 const DEFAULT_RESULT: SufficiencyResult = {
   need_web: false,
   reason: 'Router defaulted (timeout or error)',
@@ -81,54 +93,253 @@ export async function checkSufficiency(
   userMessage: string,
   chatHistory: ChatMessage[]
 ): Promise<SufficiencyResult> {
+  const out = await checkSufficiencyWithDebug(articleText, userMessage, chatHistory);
+  return out.result;
+}
+
+export async function checkSufficiencyWithDebug(
+  articleText: string,
+  userMessage: string,
+  chatHistory: ChatMessage[]
+): Promise<{ result: SufficiencyResult; debug: SufficiencyDebugInfo }> {
+  const condensed =
+    articleText.length > 3_000
+      ? articleText.slice(0, 3_000) + '\n…[article truncated for routing]'
+      : articleText;
+
+  const recentHistory = chatHistory
+    .slice(-2)
+    .map((m) => `${m.role}: ${m.content}`)
+    .join('\n');
+
+  const userPrompt = [
+    recentHistory ? `Recent conversation:\n${recentHistory}\n` : '',
+    `Article (condensed):\n${condensed}\n`,
+    `User question: ${userMessage}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const model = process.env.MODEL_ROUTER ?? 'claude-3-haiku-20240307';
+  const maxTokens = 200;
+
+  const baseDebug: SufficiencyDebugInfo = {
+    article_excerpt_used: condensed,
+    recent_history_used: recentHistory,
+    user_prompt: userPrompt,
+    model,
+    max_tokens: maxTokens,
+    raw_output: '',
+    parse_ok: false,
+    parse_error: '',
+    used_default: false,
+  };
+
   try {
-    const condensed =
-      articleText.length > 3_000
-        ? articleText.slice(0, 3_000) + '\n…[article truncated for routing]'
-        : articleText;
-
-    const recentHistory = chatHistory
-      .slice(-2)
-      .map((m) => `${m.role}: ${m.content}`)
-      .join('\n');
-
-    const userPrompt = [
-      recentHistory ? `Recent conversation:\n${recentHistory}\n` : '',
-      `Article (condensed):\n${condensed}\n`,
-      `User question: ${userMessage}`,
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const model = process.env.MODEL_ROUTER ?? 'claude-3-haiku-20240307';
-
     const result = await generateJSON({
       model,
       system: ROUTER_PROMPT,
       user: userPrompt,
-      maxTokens: 200,
+      maxTokens,
     });
+
+    const debug: SufficiencyDebugInfo = {
+      ...baseDebug,
+      raw_output: result.raw,
+      parse_ok: result.ok,
+      parse_error: result.error ?? '',
+      used_default: false,
+    };
 
     if (!result.ok || !result.data) {
       console.warn('[router] JSON parse failed:', result.error);
-      return DEFAULT_RESULT;
+      debug.used_default = true;
+      return { result: DEFAULT_RESULT, debug };
     }
 
     const parsed = result.data;
-    if (typeof parsed.need_web !== 'boolean') return DEFAULT_RESULT;
+    if (typeof parsed.need_web !== 'boolean') {
+      debug.used_default = true;
+      debug.parse_error = debug.parse_error || 'need_web missing/invalid';
+      return { result: DEFAULT_RESULT, debug };
+    }
 
     return {
-      need_web: parsed.need_web,
-      reason: typeof parsed.reason === 'string' ? parsed.reason : '',
-      suggested_queries: Array.isArray(parsed.suggested_queries)
-        ? (parsed.suggested_queries as string[])
-        : [],
-      must_cite: typeof parsed.must_cite === 'boolean' ? parsed.must_cite : false,
+      result: {
+        need_web: parsed.need_web,
+        reason: typeof parsed.reason === 'string' ? parsed.reason : '',
+        suggested_queries: Array.isArray(parsed.suggested_queries)
+          ? (parsed.suggested_queries as string[])
+          : [],
+        must_cite: typeof parsed.must_cite === 'boolean' ? parsed.must_cite : false,
+      },
+      debug,
     };
   } catch (err) {
     console.error('[router] Sufficiency check failed:', err);
-    return DEFAULT_RESULT;
+    return {
+      result: DEFAULT_RESULT,
+      debug: {
+        ...baseDebug,
+        parse_error: err instanceof Error ? err.message : String(err),
+        used_default: true,
+      },
+    };
   }
+}
+
+export interface GenerateChatDebugInfo {
+  model: string;
+  max_output_tokens: number;
+  article_was_truncated: boolean;
+  article_chars_in: number;
+  article_chars_used: number;
+  strict_sources_instruction_added: boolean;
+  system_prompt_sent: string;
+  history_sent: Array<{ role: 'user' | 'assistant'; content: string }>;
+  user_message_sent: string;
+  raw_model_output: string;
+  postprocess: {
+    used_search_context: boolean;
+    stripped_numeric_markers: boolean;
+    sources_near_end_before: boolean;
+    parsed_sources_from_context: { title: string; url: string }[];
+    appended_deterministic_sources: boolean;
+    returned_incomplete_fallback: boolean;
+  };
+}
+
+export async function generateChatResponseWithDebug(
+  articleText: string,
+  chatHistory: ChatMessage[],
+  userMessage: string,
+  searchContext: string = ''
+): Promise<{ answer: string; debug: GenerateChatDebugInfo }> {
+  const truncatedArticle =
+    articleText.length > MAX_ARTICLE_CHARS
+      ? articleText.slice(0, MAX_ARTICLE_CHARS) + '\n\n[Article truncated for length]'
+      : articleText;
+
+  let system = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
+  if (searchContext) {
+    system += `\n\n${searchContext}`;
+    system += STRICT_SOURCES_INSTRUCTION;
+  }
+
+  const model = process.env.MODEL_TUTOR ?? 'claude-3-haiku-20240307';
+  const history = chatHistory.map((msg) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
+
+  const debugBase: Omit<GenerateChatDebugInfo, 'raw_model_output' | 'postprocess'> = {
+    model,
+    max_output_tokens: MAX_OUTPUT_TOKENS,
+    article_was_truncated: articleText.length > MAX_ARTICLE_CHARS,
+    article_chars_in: articleText.length,
+    article_chars_used: truncatedArticle.length,
+    strict_sources_instruction_added: Boolean(searchContext),
+    system_prompt_sent: system,
+    history_sent: history,
+    user_message_sent: userMessage,
+  };
+
+  try {
+    const raw = await generateText({
+      model,
+      system,
+      user: userMessage,
+      maxTokens: MAX_OUTPUT_TOKENS,
+      history,
+    });
+
+    if (!raw || raw.trim().length < 10) {
+      return {
+        answer: 'The response appears incomplete. Please retry your question.',
+        debug: {
+          ...debugBase,
+          raw_model_output: raw ?? '',
+          postprocess: {
+            used_search_context: Boolean(searchContext),
+            stripped_numeric_markers: false,
+            sources_near_end_before: false,
+            parsed_sources_from_context: [],
+            appended_deterministic_sources: false,
+            returned_incomplete_fallback: true,
+          },
+        },
+      };
+    }
+
+    let text = raw;
+    let strippedNumeric = false;
+    let sourcesNearEndBefore = false;
+    let appendedDeterministicSources = false;
+    let parsedSources: { title: string; url: string }[] = [];
+
+    if (searchContext) {
+      const stripped = stripNumericMarkers(text);
+      strippedNumeric = stripped !== text;
+      text = stripped;
+      sourcesNearEndBefore = hasSourcesSectionNearEnd(text);
+      if (!sourcesNearEndBefore) {
+        parsedSources = parseSourcesFromContext(searchContext);
+        if (parsedSources.length > 0) {
+          text += buildMarkdownSources(parsedSources);
+          appendedDeterministicSources = true;
+        }
+      }
+    }
+
+    return {
+      answer: text,
+      debug: {
+        ...debugBase,
+        raw_model_output: raw,
+        postprocess: {
+          used_search_context: Boolean(searchContext),
+          stripped_numeric_markers: strippedNumeric,
+          sources_near_end_before: sourcesNearEndBefore,
+          parsed_sources_from_context: parsedSources,
+          appended_deterministic_sources: appendedDeterministicSources,
+          returned_incomplete_fallback: false,
+        },
+      },
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+
+    if (message.includes('timeout') || message.includes('TIMEOUT')) {
+      throw new Error('LLM_TIMEOUT');
+    }
+    if (
+      message.includes('429') ||
+      message.includes('rate_limit') ||
+      message.includes('quota')
+    ) {
+      throw new Error('QUOTA_EXCEEDED');
+    }
+    if (message.includes('token') || message.includes('too long')) {
+      throw new Error('TOKEN_OVERFLOW');
+    }
+
+    throw err;
+  }
+}
+
+export async function generateChatResponse(
+  articleText: string,
+  chatHistory: ChatMessage[],
+  userMessage: string,
+  searchContext: string = ''
+): Promise<string> {
+  const out = await generateChatResponseWithDebug(
+    articleText,
+    chatHistory,
+    userMessage,
+    searchContext
+  );
+  return out.answer;
 }
 
 /* ================================================================== */
@@ -217,79 +428,6 @@ function buildMarkdownSources(sources: { title: string; url: string }[]): string
 /** Strip numeric bracket markers like [1], [2], [3] from text. */
 function stripNumericMarkers(text: string): string {
   return text.replace(/\[\d+\]/g, '');
-}
-
-export async function generateChatResponse(
-  articleText: string,
-  chatHistory: ChatMessage[],
-  userMessage: string,
-  searchContext: string = ''
-): Promise<string> {
-  const truncatedArticle =
-    articleText.length > MAX_ARTICLE_CHARS
-      ? articleText.slice(0, MAX_ARTICLE_CHARS) + '\n\n[Article truncated for length]'
-      : articleText;
-
-  let system = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
-  if (searchContext) {
-    system += `\n\n${searchContext}`;
-    system += STRICT_SOURCES_INSTRUCTION;
-  }
-
-  const model = process.env.MODEL_TUTOR ?? 'claude-3-haiku-20240307';
-
-  try {
-    const history = chatHistory.map((msg) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
-
-    let text = await generateText({
-      model,
-      system,
-      user: userMessage,
-      maxTokens: MAX_OUTPUT_TOKENS,
-      history,
-    });
-
-    if (!text || text.trim().length < 10) {
-      return 'The response appears incomplete. Please retry your question.';
-    }
-
-    // ---- Deterministic post-processing (when search was used) ----
-    if (searchContext) {
-      // 1. Strip numeric bracket markers
-      text = stripNumericMarkers(text);
-
-      // 2. If no Sources section near end, append deterministic one
-      if (!hasSourcesSectionNearEnd(text)) {
-        const parsed = parseSourcesFromContext(searchContext);
-        if (parsed.length > 0) {
-          text += buildMarkdownSources(parsed);
-        }
-      }
-    }
-
-    return text;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-
-    if (message.includes('timeout') || message.includes('TIMEOUT')) {
-      throw new Error('LLM_TIMEOUT');
-    }
-    if (
-      message.includes('429') ||
-      message.includes('rate_limit') ||
-      message.includes('quota')
-    ) {
-      throw new Error('QUOTA_EXCEEDED');
-    }
-    if (message.includes('token') || message.includes('too long')) {
-      throw new Error('TOKEN_OVERFLOW');
-    }
-
-    throw err;
-  }
 }
 
 /* ================================================================== */

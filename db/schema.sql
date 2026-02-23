@@ -44,9 +44,14 @@ CREATE TABLE IF NOT EXISTS chat_traces (
   latency_router_ms       INT,
   latency_search_ms       INT,
   latency_answer_ms       INT,
-  latency_total_ms        INT
+  latency_total_ms        INT,
+  debug_flow              JSONB
 );
+
+ALTER TABLE chat_traces
+  ADD COLUMN IF NOT EXISTS debug_flow JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_chat_traces_created ON chat_traces (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_traces_session ON chat_traces (session_id);
 CREATE INDEX IF NOT EXISTS idx_chat_traces_article ON chat_traces (article_id);
+CREATE INDEX IF NOT EXISTS idx_chat_traces_debug_flow_gin ON chat_traces USING GIN (debug_flow);
