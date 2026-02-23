@@ -41,11 +41,11 @@ function hasValidSourcesSection(text: string): boolean {
   return /https?:\/\/\S+/.test(sectionText);
 }
 
-/** Build deterministic fallback Sources section from Tavily results. */
+/** Build deterministic fallback Sources section from Tavily results using markdown links. */
 function buildFallbackSources(sources: { title: string; url: string }[]): string {
   if (sources.length === 0) return '';
   const top = sources.slice(0, 2);
-  const lines = top.map((s, i) => `${i + 1}. ${s.title} – ${s.url}`);
+  const lines = top.map((s, i) => `${i + 1}. [${s.title}](${s.url})`);
   return `\n\n**Sources:**\n${lines.join('\n')}`;
 }
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
         const searchStart = Date.now();
         try {
-          const { results, timedOut } = await searchTavily(searchQueries);
+          const { results, timedOut } = await searchTavily(searchQueries, body.userMessage);
           searchTimedOut = timedOut;
 
           if (results.length > 0) {
@@ -160,9 +160,11 @@ export async function POST(request: NextRequest) {
     latencyAnswerMs = Date.now() - answerStart;
 
     // ---- Step C.2: Validate Sources section (when web search was used) ----
+    // generateChatResponse already does deterministic post-processing (strip markers + append sources).
+    // Only call repairSourcesInAnswer as last resort if deterministic enforcement also failed.
     if (searchCalled && searchSources && searchSources.length > 0) {
       if (!hasValidSourcesSection(answerText)) {
-        console.log('[chat] Answer missing valid Sources section, attempting repair…');
+        console.log('[chat] Deterministic enforcement insufficient, trying LLM repair…');
 
         try {
           const repaired = await repairSourcesInAnswer(answerText, searchContext);

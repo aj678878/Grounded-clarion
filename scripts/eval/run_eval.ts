@@ -34,6 +34,16 @@ import {
   type RetryOpts,
 } from '../../src/lib/llm/index';
 
+// Shared search pipeline — single source of truth for prod + eval
+import {
+  type SearchResult,
+  searchTavily,
+  formatSearchResultsForLLM,
+  enhanceSearchQuery,
+  tokenize as searchTokenize,
+  jaccard as searchJaccard,
+} from '../../src/lib/search';
+
 /* ================================================================== */
 /*  Config                                                            */
 /* ================================================================== */
@@ -63,24 +73,7 @@ const LOW_CRED_DOMAINS = ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.c
 
 const MAX_EXCERPT_CHARS = 12_000;
 
-/* ---- Stopwords for Jaccard tokenizer ---- */
-
-const STOPWORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-  'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
-  'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-  'could', 'should', 'may', 'might', 'shall', 'can', 'need', 'dare',
-  'ought', 'used', 'it', 'its', 'this', 'that', 'these', 'those',
-  'i', 'me', 'my', 'we', 'our', 'you', 'your', 'he', 'him', 'his',
-  'she', 'her', 'they', 'them', 'their', 'what', 'which', 'who',
-  'whom', 'where', 'when', 'why', 'how', 'not', 'no', 'nor',
-  'as', 'if', 'then', 'than', 'too', 'very', 'so', 'just',
-  'about', 'above', 'after', 'again', 'all', 'also', 'am', 'any',
-  'because', 'before', 'below', 'between', 'both', 'during', 'each',
-  'few', 'further', 'get', 'got', 'here', 'into', 'more', 'most',
-  'other', 'out', 'over', 'own', 'same', 'some', 'such', 'through',
-  'under', 'until', 'up', 'while',
-]);
+// Stopwords, tokenize, jaccard → imported from ../../src/lib/search
 
 /* ================================================================== */
 /*  Types                                                             */
@@ -96,13 +89,7 @@ interface DatasetCase {
   expected_should_search: string; // "yes" | "no"
 }
 
-interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-  source: string;
-  score: number;
-}
+// SearchResult imported from ../../src/lib/search
 
 interface CitationAnalysis {
   has_markdown_link: boolean;
@@ -251,61 +238,8 @@ function analyzeCitations(text: string): CitationAnalysis {
   };
 }
 
-/** Extract 3–5 meaningful keywords from an article title (lowercase, no stopwords). */
-function extractTitleKeywords(title: string): string[] {
-  return title
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOPWORDS.has(w))
-    .slice(0, 5);
-}
-
-/**
- * Build an enhanced search query:
- *   base_query + " " + title_keywords + " authoritative source"
- */
-function buildEnhancedQueries(
-  suggestedQueries: string[],
-  articleTitle: string,
-  userQuestion: string
-): string[] {
-  const baseQuery = suggestedQueries.length > 0 ? suggestedQueries[0] : userQuestion;
-  const contextKeywords = extractTitleKeywords(articleTitle);
-  const suffix =
-    contextKeywords.length > 0
-      ? ' ' + contextKeywords.join(' ') + ' authoritative source'
-      : ' authoritative source';
-  const enhanced = baseQuery + suffix;
-
-  const result = [enhanced];
-  if (suggestedQueries.length > 1) {
-    result.push(suggestedQueries[1]);
-  }
-  return result;
-}
-
-/** Tokenize text for Jaccard: lowercase, remove punctuation, remove stopwords, unique tokens. */
-function tokenize(text: string): Set<string> {
-  return new Set(
-    text
-      .toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length > 1 && !STOPWORDS.has(t))
-  );
-}
-
-/** Jaccard similarity between two token sets. */
-function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) return 0;
-  let intersection = 0;
-  Array.from(a).forEach((t) => {
-    if (b.has(t)) intersection++;
-  });
-  const union = a.size + b.size - intersection;
-  return union > 0 ? intersection / union : 0;
-}
+// extractTitleKeywords, buildEnhancedQueries → use enhanceSearchQuery from search.ts
+// tokenize, jaccardSimilarity → use searchTokenize, searchJaccard from search.ts
 
 /** Default retry opts for eval (2s → 4s → 8s, 3 attempts). */
 const RETRY_OPTS: Partial<RetryOpts> = {
@@ -391,102 +325,26 @@ async function runRouter(articleText: string, question: string): Promise<RouterR
   return result;
 }
 
-/* --- Tavily search --- */
+/* --- Tavily search — thin wrapper over shared search.ts with caching + retry --- */
 
-const DOMAIN_SCORES: Record<string, number> = {
-  'gov.uk': 3, 'parliament.uk': 3, 'congress.gov': 3, 'whitehouse.gov': 3,
-  'europa.eu': 3, 'un.org': 3, 'imf.org': 3, 'worldbank.org': 3,
-  'oecd.org': 3, 'wto.org': 3, 'who.int': 3,
-  'federalreserve.gov': 3, 'ecb.europa.eu': 3, 'bankofengland.co.uk': 3,
-  'rbi.org.in': 3, 'india.gov.in': 3, 'pib.gov.in': 3,
-  'bbc.co.uk': 2, 'bbc.com': 2, 'reuters.com': 2, 'apnews.com': 2,
-  'ft.com': 2, 'wsj.com': 2, 'economist.com': 2, 'theguardian.com': 2,
-  'nytimes.com': 2, 'washingtonpost.com': 2, 'bloomberg.com': 2,
-  'aljazeera.com': 2, 'politico.com': 2, 'politico.eu': 2,
-  'cnbc.com': 2, 'thehindu.com': 2, 'indianexpress.com': 2,
-  'ndtv.com': 2, 'livemint.com': 2,
-  'en.wikipedia.org': 1, 'wikipedia.org': 1, 'britannica.com': 1,
-};
-
-function scoreDomain(url: string): number {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, '');
-    if (DOMAIN_SCORES[hostname] !== undefined) return DOMAIN_SCORES[hostname];
-    for (const [domain, score] of Object.entries(DOMAIN_SCORES)) {
-      if (hostname.endsWith('.' + domain)) return score;
-    }
-    return 0;
-  } catch { return 0; }
-}
-
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ''); }
-  catch { return url; }
-}
-
-async function runSearch(queries: string[]): Promise<{ results: SearchResult[]; error: string | null }> {
+async function runSearch(
+  queries: string[],
+  userQuestion: string = ''
+): Promise<{ results: SearchResult[]; error: string | null }> {
   if (!TAVILY_API_KEY) return { results: [], error: 'TAVILY_API_KEY not set' };
 
   const toRun = queries.slice(0, 2);
-
-  const ck = cacheKey('tavily', ...toRun);
+  const ck = cacheKey('tavily', ...toRun, userQuestion);
   const cached = cacheGet('tavily', ck);
   if (cached) {
     try { return JSON.parse(cached) as { results: SearchResult[]; error: string | null }; } catch {}
   }
 
-  // Tavily calls use withRetry but NOT the LLM rate limiter
   const searchResult = await withRetry(
     async () => {
-      const searchPromises = toRun.map((q) =>
-        fetch('https://api.tavily.com/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            api_key: TAVILY_API_KEY,
-            query: q,
-            max_results: 5,
-            search_depth: 'advanced',
-            exclude_domains: ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.com', 'medium.com']
-          }),
-        }).then(async (r) => {
-          if (!r.ok) {
-            const body = await r.text().catch(() => '');
-            throw new Error(`Tavily ${r.status}: ${body.slice(0, 200)}`);
-          }
-          return r.json();
-        })
-      );
-
-      const timeout = new Promise<'TIMEOUT'>((resolve) =>
-        setTimeout(() => resolve('TIMEOUT'), 8_000)
-      );
-      const raceResult = await Promise.race([Promise.all(searchPromises), timeout]);
-
-      if (raceResult === 'TIMEOUT') {
-        return { results: [] as SearchResult[], error: 'Search timed out' };
-      }
-
-      const allResults: SearchResult[] = [];
-      const seenUrls = new Set<string>();
-
-      for (const data of raceResult) {
-        for (const r of data.results ?? []) {
-          const url = r.url ?? '';
-          if (seenUrls.has(url)) continue;
-          seenUrls.add(url);
-          allResults.push({
-            title: r.title ?? '',
-            url,
-            snippet: r.content ?? '',
-            source: extractDomain(url),
-            score: scoreDomain(url),
-          });
-        }
-      }
-
-      allResults.sort((a, b) => b.score - a.score);
-      return { results: allResults.slice(0, 3), error: null };
+      const { results, timedOut } = await searchTavily(toRun, userQuestion);
+      if (timedOut) return { results: [] as SearchResult[], error: 'Search timed out' };
+      return { results, error: null as string | null };
     },
     { label: 'tavily-search', ...RETRY_OPTS }
   );
@@ -495,16 +353,7 @@ async function runSearch(queries: string[]): Promise<{ results: SearchResult[]; 
   return searchResult;
 }
 
-function formatSearchResults(results: SearchResult[]): string {
-  if (results.length === 0) return '';
-  const lines = results.map(
-    (r, i) => `[${i + 1}] "${r.title}" — ${r.source}\n    URL: ${r.url}\n    ${r.snippet}`
-  );
-  return (
-    '=== WEB SEARCH RESULTS (use for "Additional context" section; cite URL when referencing) ===\n\n' +
-    lines.join('\n\n')
-  );
-}
+// formatSearchResults → use formatSearchResultsForLLM imported from search.ts
 
 /* --- Answer generation --- */
 
@@ -866,18 +715,18 @@ async function main() {
       let searchContext = '';
       if (routing.need_web && routing.suggested_queries.length > 0) {
         searchCalled = true;
-        const enhancedQueries = buildEnhancedQueries(
+        const enhancedQueries = enhanceSearchQuery(
           routing.suggested_queries,
           c.article_title,
           c.question
         );
         console.log(`  enhanced queries: ${enhancedQueries.map((q) => q.slice(0, 80)).join(' | ')}`);
-        const searchResult = await runSearch(enhancedQueries);
+        const searchResult = await runSearch(enhancedQueries, c.question);
         searchResultsList = searchResult.results;
         searchError = searchResult.error;
         sourcesUsed = searchResult.results.map((r) => r.source);
         if (searchResult.results.length > 0) {
-          searchContext = formatSearchResults(searchResult.results);
+          searchContext = formatSearchResultsForLLM(searchResult.results);
         }
         console.log(`  search: ${searchResult.results.length} sources, error=${searchResult.error}`);
       }
@@ -906,9 +755,9 @@ async function main() {
     let alignmentScore: number | null = null;
     let lowAlignment = false;
     if (searchCalled && searchResultsList.length > 0) {
-      const qTokens = tokenize(c.question);
+      const qTokens = searchTokenize(c.question);
       const jaccardScores = searchResultsList.map((r) =>
-        jaccardSimilarity(qTokens, tokenize(r.snippet))
+        searchJaccard(qTokens, searchTokenize(r.snippet))
       );
       alignmentScore =
         jaccardScores.reduce((s, v) => s + v, 0) / jaccardScores.length;

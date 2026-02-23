@@ -1,8 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import ReactMarkdown from 'react-markdown';
 import Button from './Button';
+
+/* Custom link renderer — all links open in new tab */
+function ExternalLink(props: ComponentProps<'a'>) {
+  return (
+    <a
+      {...props}
+      target="_blank"
+      rel="noopener noreferrer"
+    />
+  );
+}
 
 interface ChatBubbleProps {
   role: 'user' | 'assistant';
@@ -42,6 +53,7 @@ export default function ChatBubble({ role, content, showClear, onClear }: ChatBu
               ? 'bg-primary/5 text-gray-800 border border-primary/10 whitespace-pre-wrap'
               : 'bg-gray-50 text-gray-800 border border-gray-100')
           }
+          style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
         >
           {isUser ? (
             content
@@ -60,7 +72,7 @@ export default function ChatBubble({ role, content, showClear, onClear }: ChatBu
               prose-code:text-xs prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded
               prose-hr:my-3 prose-hr:border-gray-200"
             >
-              <ReactMarkdown>{content}</ReactMarkdown>
+              <ReactMarkdown components={{ a: ExternalLink }}>{content}</ReactMarkdown>
             </div>
           )}
         </div>

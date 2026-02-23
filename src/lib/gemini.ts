@@ -135,82 +135,89 @@ export async function checkSufficiency(
 /*  Step B — Response Generation                                      */
 /* ================================================================== */
 
-const SYSTEM_PROMPT = `You are a helpful tutor that helps users understand news articles.
+const SYSTEM_PROMPT = `You are a helpful tutor that explains news articles to curious readers.
 
-## Formatting Rules (ALWAYS follow)
+## How to write (readability-first)
 
-You MUST format every response clearly using Markdown:
-- Start with a direct 1–2 sentence answer.
-- Then use **bullet points** for explanations and details.
-- Use short paragraphs (max 3 lines each).
-- Use **bold** for key terms and section headers.
-- Use section headers (##, ###) ONLY when the answer has distinct parts (e.g. article info vs. web context).
-- Never output a single long wall of text.
-- Keep answers concise unless the user asks for depth.
-- Always finish your response with a complete sentence — never stop mid-word or mid-thought.
+- If the user asks multiple questions, answer them in the same order they were asked.
+- Use short paragraphs (roughly 3 lines max). Insert a blank line between distinct ideas.
+- Use **bold** sparingly — only for genuinely key terms or names on first mention.
+- Do NOT force bullet points, numbered lists, or section headers unless they genuinely help.
+- Write in natural flowing prose. A conversational, clear tone is preferred over rigid structure.
+- Always finish with a complete sentence — never stop mid-word or mid-thought.
+- Be concise by default. Expand only when the user asks for depth.
 
-## Response Structure
+## Grounding rules
 
-**When web search results ARE provided:**
-
-You MUST structure your response as:
-
-**From the article:**
-- Grounded explanation based only on the article excerpt.
-
-**Additional context (from web search):**
-- Include only facts from the provided search results.
-- Do NOT introduce any other external information.
-
-After the explanation, you MUST include a final section:
-
-**Sources:**
-1. [Source Title] – URL
-2. [Source Title] – URL
-
-Rules for Sources section:
-- Only include sources that were actually used.
-- Use the exact title and URL from the provided search results.
-- Do NOT omit this section if web search was used.
-- Do NOT inline URLs in the body instead of this section.
-
-**When NO web search results are provided:**
-Answer from the article. If the article is insufficient and no web results are provided:
-- Clearly state: "The article does not contain enough information to fully answer this question."
-- Do NOT introduce external facts without web search.
-
-## Core Rules
-1. Ground answers in the article text first — always start there.
-2. Never fabricate quotes, numbers, statistics, claims, sources, or URLs.
-3. When citing web sources, ONLY use information from the provided search results.
-4. Be concise by default. Expand only when the user asks for depth.
-5. If you cannot answer even with provided sources, say so honestly.
-
-## Source Quality (when citing web results)
-- Prefer official/primary sources (government sites, regulators, committees).
-- For politics/economics, prefer: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
-- If sources conflict, state both viewpoints and cite each.
-- Wikipedia is acceptable only for basic definitions.`;
+1. Use the ARTICLE TEXT first. If the article covers the question, answer from it.
+2. When WEB CONTEXT is provided, use it for missing background, definitions, or facts. ONLY use information from the provided web context — do not introduce other external information.
+3. Never fabricate quotes, numbers, statistics, claims, sources, or URLs.
+4. If the article is insufficient and no web context is provided, say so honestly.
+5. If sources conflict, state both viewpoints and cite each.`;
 
 const MAX_ARTICLE_CHARS = 10_000;
 const MAX_OUTPUT_TOKENS = 900;
 
 const STRICT_SOURCES_INSTRUCTION = `
 
-STRICT REQUIREMENT:
-Because web search was performed, your answer is INVALID unless it ends with:
+STRICT REQUIREMENT — because web search was performed:
+
+Your answer MUST end with a **Sources:** section formatted exactly like this:
 
 **Sources:**
-1. [Source Title] – https://actual-url.com
-2. [Source Title] – https://actual-url.com
+1. [Source Title](https://actual-url.com)
+2. [Source Title](https://actual-url.com)
 
 Rules:
+- Use markdown link syntax: [Title](URL). This is mandatory.
 - Include ONLY sources you actually used from the provided web results.
-- Each entry MUST include a full URL from the provided web results.
 - Put the Sources section at the VERY END of the answer (last lines).
 - Do NOT use [1], [2], [3] or any numeric reference markers anywhere in the answer body.
-- Do NOT inline citations as bracketed numbers. All citation URLs go in the Sources section only.
-- Do NOT cite Quora/Facebook/Reddit unless no other sources exist; if used, clearly label as low-credibility.`;
+- Do NOT cite Quora/Facebook/Reddit unless no other sources exist.`;
+
+/* ---- Deterministic post-processing helpers ---- */
+
+/** Parse title+url pairs from the formatted searchContext string. */
+function parseSourcesFromContext(ctx: string): { title: string; url: string }[] {
+  const sources: { title: string; url: string }[] = [];
+  // Matches: [1] "Title" — domain  OR  [1] Title — domain
+  const titlePattern = /\[\d+\]\s*"?([^"—\n]+)"?\s*—/g;
+  const urlPattern = /URL:\s*(https?:\/\/\S+)/g;
+
+  const titles: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = titlePattern.exec(ctx)) !== null) titles.push(m[1].trim());
+
+  const urls: string[] = [];
+  while ((m = urlPattern.exec(ctx)) !== null) urls.push(m[1]);
+
+  for (let i = 0; i < Math.min(titles.length, urls.length, 5); i++) {
+    sources.push({ title: titles[i], url: urls[i] });
+  }
+  return sources;
+}
+
+/** Check if answer has a Sources header near the end (last 30%) with at least one URL. */
+function hasSourcesSectionNearEnd(text: string): boolean {
+  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
+  let lastIdx = -1;
+  let m: RegExpExecArray | null;
+  while ((m = headerPattern.exec(text)) !== null) lastIdx = m.index;
+  if (lastIdx < 0 || lastIdx < text.length * 0.7) return false;
+  return /https?:\/\/\S+/.test(text.slice(lastIdx));
+}
+
+/** Build a markdown-link Sources section from parsed Tavily results. */
+function buildMarkdownSources(sources: { title: string; url: string }[]): string {
+  if (sources.length === 0) return '';
+  const lines = sources.map((s, i) => `${i + 1}. [${s.title}](${s.url})`);
+  return `\n\n**Sources:**\n${lines.join('\n')}`;
+}
+
+/** Strip numeric bracket markers like [1], [2], [3] from text. */
+function stripNumericMarkers(text: string): string {
+  return text.replace(/\[\d+\]/g, '');
+}
 
 export async function generateChatResponse(
   articleText: string,
@@ -237,7 +244,7 @@ export async function generateChatResponse(
       content: msg.content,
     }));
 
-    const text = await generateText({
+    let text = await generateText({
       model,
       system,
       user: userMessage,
@@ -247,6 +254,20 @@ export async function generateChatResponse(
 
     if (!text || text.trim().length < 10) {
       return 'The response appears incomplete. Please retry your question.';
+    }
+
+    // ---- Deterministic post-processing (when search was used) ----
+    if (searchContext) {
+      // 1. Strip numeric bracket markers
+      text = stripNumericMarkers(text);
+
+      // 2. If no Sources section near end, append deterministic one
+      if (!hasSourcesSectionNearEnd(text)) {
+        const parsed = parseSourcesFromContext(searchContext);
+        if (parsed.length > 0) {
+          text += buildMarkdownSources(parsed);
+        }
+      }
     }
 
     return text;
