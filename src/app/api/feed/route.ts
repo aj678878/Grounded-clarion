@@ -3,10 +3,11 @@
 /* ------------------------------------------------------------------ */
 
 import { NextRequest, NextResponse } from 'next/server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic'; // never statically cache this route
+
 import { fetchBalancedFeed, searchFeed } from '@/lib/guardian';
 import { deduplicateArticles } from '@/lib/dedup';
-
-export const dynamic = 'force-dynamic'; // never statically cache this route
 
 export async function GET(request: NextRequest) {
   try {
