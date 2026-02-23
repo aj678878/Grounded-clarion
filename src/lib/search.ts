@@ -15,8 +15,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { JSDOM } from 'jsdom';
-import { Readability } from '@mozilla/readability';
 
 /* ================================================================== */
 /*  Public types                                                      */
@@ -308,11 +306,43 @@ const BROWSER_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
+type ReadabilityDeps = {
+  JSDOMCtor: typeof import('jsdom').JSDOM;
+  ReadabilityCtor: typeof import('@mozilla/readability').Readability;
+};
+
+let readabilityDeps: ReadabilityDeps | null = null;
+let readabilityDepsLoadFailed = false;
+
+async function getReadabilityDeps(): Promise<ReadabilityDeps | null> {
+  if (readabilityDeps) return readabilityDeps;
+  if (readabilityDepsLoadFailed) return null;
+
+  try {
+    const [{ JSDOM }, { Readability }] = await Promise.all([
+      import('jsdom'),
+      import('@mozilla/readability'),
+    ]);
+    readabilityDeps = {
+      JSDOMCtor: JSDOM,
+      ReadabilityCtor: Readability,
+    };
+    return readabilityDeps;
+  } catch (err) {
+    readabilityDepsLoadFailed = true;
+    console.warn('[search] Readability deps unavailable, using snippet-only fallback:', err);
+    return null;
+  }
+}
+
 /**
  * Fetch a URL and extract readable text using Readability.
  * Returns null if extraction fails (blocked, paywall, too short, timeout).
  */
 export async function fetchAndExtractReadableText(url: string): Promise<string | null> {
+  const deps = await getReadabilityDeps();
+  if (!deps) return null;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), EXTRACT_TIMEOUT_MS);
 
@@ -333,8 +363,8 @@ export async function fetchAndExtractReadableText(url: string): Promise<string |
     const html = await resp.text();
     if (!html || html.length < 500) return null;
 
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
+    const dom = new deps.JSDOMCtor(html, { url });
+    const reader = new deps.ReadabilityCtor(dom.window.document);
     const article = reader.parse();
 
     if (!article || !article.textContent) return null;
