@@ -15,13 +15,11 @@ export const dynamic = 'force-dynamic';
 import {
   checkSufficiencyWithDebug,
   generateChatResponseWithDebug,
-  repairSourcesInAnswer,
 } from '@/lib/gemini';
 import {
   searchTavily,
   isSearchAvailable,
   formatSearchResultsForLLM,
-  enhanceSearchQuery,
 } from '@/lib/search';
 import { insertChatTrace, type ChatTrace } from '@/lib/traces';
 import { ChatRequest } from '@/types';
@@ -48,12 +46,44 @@ function hasValidSourcesSection(text: string): boolean {
   return /https?:\/\/\S+/.test(sectionText);
 }
 
-/** Build deterministic fallback Sources section from Tavily results using markdown links. */
-function buildFallbackSources(sources: { title: string; url: string }[]): string {
-  if (sources.length === 0) return '';
-  const top = sources.slice(0, 2);
-  const lines = top.map((s, i) => `${i + 1}. [${s.title}](${s.url})`);
-  return `\n\n**Sources:**\n${lines.join('\n')}`;
+function stripExistingSourcesSection(text: string): string {
+  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
+  let lastHeaderIndex = -1;
+  let match: RegExpExecArray | null;
+  while ((match = headerPattern.exec(text)) !== null) {
+    lastHeaderIndex = match.index;
+  }
+  return lastHeaderIndex >= 0 ? text.slice(0, lastHeaderIndex).trimEnd() : text.trimEnd();
+}
+
+function stripRawUrls(text: string): string {
+  return text.replace(/https?:\/\/[^\s)\]]+/gi, '').replace(/[ \t]+\n/g, '\n').trimEnd();
+}
+
+function enforceDeterministicSourcesSection(
+  answer: string,
+  sources: { title: string; url: string }[]
+): string {
+  if (sources.length === 0) return answer;
+  const seen = new Set<string>();
+  const top = sources
+    .filter((s) => typeof s.url === 'string' && s.url.startsWith('http'))
+    .filter((s) => {
+      if (seen.has(s.url)) return false;
+      seen.add(s.url);
+      return true;
+    })
+    .slice(0, 5)
+    .map((s) => ({
+      title: (s.title || 'Untitled source').replace(/\]/g, ''),
+      url: s.url,
+    }));
+
+  if (top.length === 0) return stripRawUrls(stripExistingSourcesSection(answer));
+
+  const body = stripRawUrls(stripExistingSourcesSection(answer));
+  const sourcesBlock = `Sources:\n${top.map((s) => `- [${s.title}](${s.url})`).join('\n')}`;
+  return body ? `${body}\n\n${sourcesBlock}` : sourcesBlock;
 }
 
 export async function POST(request: NextRequest) {
@@ -182,11 +212,7 @@ export async function POST(request: NextRequest) {
       // ---- Step B: Tavily search (if needed) ----
       if (routing.need_web && routing.suggested_queries.length > 0) {
         searchCalled = true;
-        searchQueries = enhanceSearchQuery(
-          routing.suggested_queries,
-          articleTitle,
-          body.userMessage
-        );
+        searchQueries = [...routing.suggested_queries];
 
         const searchStart = Date.now();
         debugFlow.search_plan = {
@@ -275,55 +301,23 @@ export async function POST(request: NextRequest) {
     };
     emitFlow('answer_output_initial', debugFlow.answer_output);
 
-    // ---- Step C.2: Validate Sources section (when web search was used) ----
-    // generateChatResponse already does deterministic post-processing (strip markers + append sources).
-    // Only call repairSourcesInAnswer as last resort if deterministic enforcement also failed.
+    // ---- Step C.2: Deterministic Sources enforcement (when web search was used) ----
     if (searchCalled && searchSources && searchSources.length > 0) {
-      const validBeforeRepair = hasValidSourcesSection(answerText);
-      if (!validBeforeRepair) {
-        console.log('[chat] Deterministic enforcement insufficient, trying LLM repair…');
-
-        try {
-          const repaired = await repairSourcesInAnswer(answerText, searchContext);
-          const validAfterRepair = hasValidSourcesSection(repaired);
-          if (validAfterRepair) {
-            answerText = repaired;
-            console.log('[chat] Sources repair succeeded.');
-            (debugFlow.answer_output as Record<string, unknown>).repair = {
-              attempted: true,
-              valid_before_repair: validBeforeRepair,
-              repaired_text: repaired,
-              valid_after_repair: validAfterRepair,
-              fallback_appended: false,
-            };
-          } else {
-            console.log('[chat] Repair still missing Sources, appending fallback.');
-            answerText += buildFallbackSources(searchSources);
-            (debugFlow.answer_output as Record<string, unknown>).repair = {
-              attempted: true,
-              valid_before_repair: validBeforeRepair,
-              repaired_text: repaired,
-              valid_after_repair: validAfterRepair,
-              fallback_appended: true,
-            };
-          }
-        } catch {
-          console.log('[chat] Repair error, appending fallback Sources.');
-          answerText += buildFallbackSources(searchSources);
-          (debugFlow.answer_output as Record<string, unknown>).repair = {
-            attempted: true,
-            valid_before_repair: validBeforeRepair,
-            repair_error: true,
-            fallback_appended: true,
-          };
-        }
-      } else {
-        (debugFlow.answer_output as Record<string, unknown>).repair = {
-          attempted: false,
-          valid_before_repair: validBeforeRepair,
-          fallback_appended: false,
-        };
-      }
+      const before = answerText;
+      answerText = enforceDeterministicSourcesSection(
+        answerText,
+        searchSources.map((s) => ({ title: s.title, url: s.url }))
+      );
+      (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
+        applied: true,
+        sources_count_input: searchSources.length,
+        has_valid_sources_before: hasValidSourcesSection(before),
+        has_valid_sources_after: hasValidSourcesSection(answerText),
+      };
+    } else {
+      (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
+        applied: false,
+      };
     }
 
     // Append timeout note if search failed

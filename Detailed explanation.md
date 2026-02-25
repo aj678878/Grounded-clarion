@@ -186,7 +186,7 @@ Debug page:
 
 #### Anthropic transport (`src/lib/llm/anthropic.ts`)
 - `callAnthropic(...)`:
-  - Reads `ANTHROPIC_API_KEY` lazily.
+  - Reads the Anthropic credential lazily from environment.
   - Applies global rate limiter (`rateLimit()`).
   - Calls Messages API `/v1/messages`.
   - Returns concatenated text blocks.
@@ -317,7 +317,7 @@ Files: `src/app/api/chat/route.ts` + `src/lib/search.ts`
 
 Condition:
 - Search runs only if:
-  - `isSearchAvailable()` is true (`TAVILY_API_KEY` present), and
+  - `isSearchAvailable()` is true (search credential present), and
   - `routing.need_web === true`, and
   - `routing.suggested_queries.length > 0`
 
@@ -550,7 +550,7 @@ Check:
 
 ### Search issues
 Check:
-- `TAVILY_API_KEY` present (`isSearchAvailable`).
+- Search credential present (`isSearchAvailable`).
 - `search_called` and `search_error` in traces.
 - URL skips due to missing/invalid fields.
 - Search timeout path (`timedOut`).
@@ -585,12 +585,12 @@ Check:
 ## 8) Environment Variables and Their Effect
 
 Required/important:
-- `GUARDIAN_API_KEY`: Guardian content requests.
-- `ANTHROPIC_API_KEY`: all LLM calls.
+- Guardian credential: Guardian content requests.
+- Anthropic credential: all LLM calls.
 - `MODEL_ROUTER`: router model name.
 - `MODEL_TUTOR`: tutor model name.
 - `LLM_MIN_DELAY_MS`: global LLM min gap.
-- `TAVILY_API_KEY`: enables search path.
+- Tavily/search credential: enables search path.
 - `DATABASE_URL`: enables metrics and trace persistence.
 
 Optional/debug:
@@ -628,3 +628,228 @@ Optional/debug:
 ---
 
 This document should give you enough structure to debug where clarity breaks: router decision quality, retrieval quality, response grounding, or citation post-processing.
+
+---
+
+## 10) Prompt Audit for Current Failure Modes
+
+This section adds a focused prompt/component audit based on current code, with the exact prompt text (or deterministic equivalent) and the observed failure symptom.
+
+### 10.1 Router prompt (decides `need_web`, number of queries, query style)
+
+Source: `/Users/akashjain/Clarion/src/lib/gemini.ts` (`ROUTER_PROMPT`)
+
+```text
+You are a routing assistant for a news Q&A system.
+
+Your task: decide whether the ARTICLE EXCERPT alone contains enough information to answer the user's question accurately and completely.
+
+You are NOT deciding whether web search would improve the answer.
+You are deciding whether web search is REQUIRED.
+
+Output ONLY valid JSON with this exact schema:
+{
+  "need_web": boolean,
+  "reason": string,
+  "suggested_queries": string[],
+  "must_cite": boolean
+}
+
+Decision Rules:
+
+Set need_web = true ONLY if:
+- The question requires factual information that is NOT present in the article excerpt.
+- The user asks for:
+    • Definitions of entities not explained in the article
+    • Background history not described
+    • Legal/regulatory details not mentioned
+    • Current status beyond the article's timeframe
+    • Quantitative data not included in the excerpt
+- The answer would require introducing NEW factual claims not grounded in the article.
+
+Set need_web = false if:
+- The article excerpt contains enough information to answer through reasoning, explanation, or synthesis.
+- The user asks about implications, significance, risks, impacts, incentives, or interpretation that can be logically derived from the article.
+- The question is analytical rather than factual.
+
+Important:
+- Do NOT trigger web search just because additional context might exist.
+- Only trigger if the answer would require adding facts not in the excerpt.
+
+must_cite:
+- true ONLY if need_web = true.
+- false otherwise.
+
+suggested_queries:
+- Only provide 1–2 short factual queries if need_web = true.
+- Leave empty array if need_web = false.
+
+reason:
+- One short sentence explaining why the article is or is not sufficient.
+
+Do NOT output anything except the JSON object.
+```
+
+Failure symptom (as observed):
+- Does not force metric+constraint aligned queries (example target form: "Adzuna advertised vacancies pre-pandemic low cause").
+- Can classify context-bound historical questions as article-sufficient (`need_web=false`) when temporal constraints actually require external verification.
+
+---
+
+### 10.2 Query generation prompt (question -> Tavily queries)
+
+Production reality:
+- There is **no separate LLM query-generation prompt** in production chat path.
+- Query generation is deterministic via `enhanceSearchQuery(...)` in `/Users/akashjain/Clarion/src/lib/search.ts`.
+
+Current deterministic logic summary:
+1. Base query is router `suggested_queries[0]` (else `userQuestion`).
+2. Appends article-title keywords + question keywords + suffix `authoritative source`.
+3. Uses router `suggested_queries[1]` if present; otherwise adds a question-led fallback query.
+
+Failure symptom (as observed):
+- Generates generic broad queries (e.g., ONS-style generic queries) instead of dataset-specific constrained queries.
+- Because this stage is deterministic and downstream of router suggestions, weak router suggestions propagate.
+
+Note:
+- In eval harness (`/Users/akashjain/Clarion/scripts/eval/run_eval.ts`) there is a separate router prompt that also influences query quality for benchmark runs, but production uses `src/lib/gemini.ts` + deterministic `enhanceSearchQuery`.
+
+---
+
+### 10.3 Answer synthesis/system prompt (main tutor prompt)
+
+Source: `/Users/akashjain/Clarion/src/lib/gemini.ts` (`SYSTEM_PROMPT`)
+
+```text
+You are a helpful tutor that explains news articles to curious readers.
+
+## How to write (readability-first)
+
+- If the user asks multiple questions, answer them in the same order they were asked.
+- Use short paragraphs (roughly 3 lines max). Insert a blank line between distinct ideas.
+- Use **bold** sparingly — only for genuinely key terms or names on first mention.
+- Do NOT force bullet points, numbered lists, or section headers unless they genuinely help.
+- Write in natural flowing prose. A conversational, clear tone is preferred over rigid structure.
+- Always finish with a complete sentence — never stop mid-word or mid-thought.
+- Be concise by default. Expand only when the user asks for depth.
+
+## Grounding rules
+
+1. Use the ARTICLE TEXT first. If the article covers the question, answer from it.
+2. When WEB CONTEXT is provided, use it for missing background, definitions, or facts. ONLY use information from the provided web context — do not introduce other external information.
+3. Never fabricate quotes, numbers, statistics, claims, sources, or URLs.
+4. If the article is insufficient and no web context is provided, say so honestly.
+5. If sources conflict, state both viewpoints and cite each.
+```
+
+Failure symptom (as observed):
+- Does not explicitly force hard constraint checking (e.g., temporal constraints like “pre-pandemic”).
+- Does not require rejecting candidate interpretations that violate user constraints.
+- Does not force explicit evidence linkage claim-by-claim.
+
+---
+
+### 10.4 Citation/grounding prompt (separate from base answer prompt)
+
+Source: `/Users/akashjain/Clarion/src/lib/gemini.ts` (`STRICT_SOURCES_INSTRUCTION`, appended only when `searchContext` exists)
+
+```text
+STRICT REQUIREMENT — because web search was performed:
+
+Your answer MUST end with a **Sources:** section formatted exactly like this:
+
+**Sources:**
+1. [Source Title](https://actual-url.com)
+2. [Source Title](https://actual-url.com)
+
+Rules:
+- Use markdown link syntax: [Title](URL). This is mandatory.
+- Include ONLY sources you actually used from the provided web results.
+- Put the Sources section at the VERY END of the answer (last lines).
+- Do NOT use [1], [2], [3] or any numeric reference markers anywhere in the answer body.
+- Do NOT cite Quora/Facebook/Reddit unless no other sources exist.
+```
+
+Failure symptom (as observed):
+- Citations may exist but not support the exact constrained claim (example: “pre-pandemic”).
+- Prompt enforces formatting/placement strongly, but not claim-level citation validation.
+
+---
+
+### 10.5 Repair prompt ("fix it" pass)
+
+Source: `/Users/akashjain/Clarion/src/lib/gemini.ts` (`repairSourcesInAnswer`)
+
+#### Repair system prompt
+```text
+You are a text editor. Your ONLY job is to:
+1. Remove any [1], [2], [3] numeric reference markers from the answer body.
+2. Add a proper **Sources:** section at the end with URLs from the provided web search results.
+Do NOT change the substantive content of the answer.
+```
+
+#### Repair user prompt
+```text
+Here is the answer that needs a Sources section added at the end:
+
+---
+{answer}
+---
+
+Here are the web search results that were available:
+
+{searchContext}
+
+TASK: Return the COMPLETE original answer with these fixes:
+1. Remove any [1], [2], [3] numeric reference markers from the body text.
+2. Append a proper "**Sources:**" section at the very end. Each source entry must include: number, title, and full URL.
+Only include sources that were referenced in the answer. If unclear which were used, include the top 2 most relevant.
+
+Return ONLY the full corrected answer text — nothing else.
+```
+
+Failure symptom (as observed):
+- Optimizes formatting and preserves potentially wrong semantics.
+- Adds LLM-call cost/latency and can waste credits if over-triggered.
+
+---
+
+### 10.6 Final packaging template (deterministic layer)
+
+Production reality:
+- There is **no single dedicated textual packaging prompt** at the final stage.
+- Packaging is deterministic + validation logic across:
+  - `generateChatResponse` post-processing in `/Users/akashjain/Clarion/src/lib/gemini.ts`
+    - `stripNumericMarkers(...)`
+    - `hasSourcesSectionNearEnd(...)`
+    - `parseSourcesFromContext(...)`
+    - `buildMarkdownSources(...)`
+  - Route-level fallback in `/Users/akashjain/Clarion/src/app/api/chat/route.ts`
+    - `hasValidSourcesSection(...)`
+    - `repairSourcesInAnswer(...)`
+    - `buildFallbackSources(...)`
+
+Failure symptom (as observed):
+- Can duplicate or re-append sources if multiple enforcement layers trigger.
+- Can mix concerns between answer synthesis and packaging enforcement.
+- Can preserve incorrect reasoning while improving output shape.
+
+---
+
+### 10.7 Summary of prompt-layer vs deterministic-layer ownership
+
+1. Prompt-controlled behavior:
+- Router decisioning + suggested query drafting
+- Tutor synthesis style/grounding intent
+- Strict source-format instructions
+- Optional repair edit pass
+
+2. Deterministic-controlled behavior:
+- Query enhancement composition (`enhanceSearchQuery`)
+- Search filtering/ranking/enrichment
+- Numeric marker stripping
+- Sources section parse/append/fallback
+
+This split is important for debugging:
+- If output is wrong but well-formatted, issue is often prompt/router/retrieval semantics.
+- If output is correct but malformed, issue is often deterministic packaging/repair flow.

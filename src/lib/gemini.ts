@@ -55,6 +55,10 @@ must_cite:
 suggested_queries:
 - Only provide 1–2 short factual queries if need_web = true.
 - Leave empty array if need_web = false.
+- Queries must be high-precision and directly target the missing facts.
+- Do NOT append filler words such as "authoritative source", "cite", "grounded", or instruction-like phrases.
+- Prefer the structure: "<entity/topic> <missing fact> <timeframe/location>".
+- Avoid long concatenated queries or mixing in the article headline.
 
 reason:
 - One short sentence explaining why the article is or is not sufficient.

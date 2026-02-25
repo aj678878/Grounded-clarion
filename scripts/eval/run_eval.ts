@@ -39,9 +39,6 @@ import {
   type SearchResult,
   searchTavily,
   formatSearchResultsForLLM,
-  enhanceSearchQuery,
-  tokenize as searchTokenize,
-  jaccard as searchJaccard,
 } from '../../src/lib/search';
 
 /* ================================================================== */
@@ -63,6 +60,7 @@ const RESULTS_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_results.json
 const PARTIAL_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_results.partial.json');
 const SUMMARY_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_summary.md');
 const CACHE_DIR = path.resolve(process.cwd(), 'scripts/eval/.cache');
+const OUTPUTS_DIR = path.resolve(process.cwd(), 'outputs');
 
 const EVAL_THROTTLE_MS = parseInt(process.env.EVAL_THROTTLE_MS ?? '800', 10);
 const EVAL_CACHE = (process.env.EVAL_CACHE ?? '1') === '1';
@@ -72,8 +70,6 @@ const BAD_DOMAINS = ['quora.com', 'facebook.com', 'reddit.com', 'medium.com', 'b
 const LOW_CRED_DOMAINS = ['linkedin.com', 'quora.com', 'facebook.com', 'reddit.com', 'medium.com'];
 
 const MAX_EXCERPT_CHARS = 12_000;
-
-// Stopwords, tokenize, jaccard → imported from ../../src/lib/search
 
 /* ================================================================== */
 /*  Types                                                             */
@@ -130,10 +126,6 @@ interface EvalResult {
   sources_section_has_url: boolean;
   end_sources_with_url: boolean;
 
-  // Retrieval alignment (Jaccard)
-  alignment_score: number | null;
-  low_alignment: boolean;
-
   // Low-cred domain ratio
   low_cred_count: number;
   total_results: number;
@@ -144,6 +136,8 @@ interface EvalResult {
   should_search_correct: boolean | null;
   should_search_reasoning: string;
   completeness_score: number | null;
+  answer_alignment_score: number | null;
+  retrieval_relevance_score: number | null;
   completeness_reasoning: string;
   unsupported_claims: boolean | null;
   unsupported_explanation: string;
@@ -238,8 +232,44 @@ function analyzeCitations(text: string): CitationAnalysis {
   };
 }
 
-// extractTitleKeywords, buildEnhancedQueries → use enhanceSearchQuery from search.ts
-// tokenize, jaccardSimilarity → use searchTokenize, searchJaccard from search.ts
+function stripExistingSourcesSection(text: string): string {
+  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
+  let lastHeaderIndex = -1;
+  let match: RegExpExecArray | null;
+  while ((match = headerPattern.exec(text)) !== null) {
+    lastHeaderIndex = match.index;
+  }
+  return lastHeaderIndex >= 0 ? text.slice(0, lastHeaderIndex).trimEnd() : text.trimEnd();
+}
+
+function stripRawUrls(text: string): string {
+  return text.replace(/https?:\/\/[^\s)\]]+/gi, '').replace(/[ \t]+\n/g, '\n').trimEnd();
+}
+
+function enforceDeterministicSourcesSection(
+  answer: string,
+  sources: Array<{ title: string; url: string }>
+): string {
+  if (sources.length === 0) return answer;
+  const seen = new Set<string>();
+  const top = sources
+    .filter((s) => typeof s.url === 'string' && s.url.startsWith('http'))
+    .filter((s) => {
+      if (seen.has(s.url)) return false;
+      seen.add(s.url);
+      return true;
+    })
+    .slice(0, 5)
+    .map((s) => ({
+      title: (s.title || 'Untitled source').replace(/\]/g, ''),
+      url: s.url,
+    }));
+
+  if (top.length === 0) return stripRawUrls(stripExistingSourcesSection(answer));
+  const body = stripRawUrls(stripExistingSourcesSection(answer));
+  const sourcesBlock = `Sources:\n${top.map((s) => `- [${s.title}](${s.url})`).join('\n')}`;
+  return body ? `${body}\n\n${sourcesBlock}` : sourcesBlock;
+}
 
 /** Default retry opts for eval (2s → 4s → 8s, 3 attempts). */
 const RETRY_OPTS: Partial<RetryOpts> = {
@@ -254,7 +284,12 @@ const RETRY_OPTS: Partial<RetryOpts> = {
 
 /* --- Router --- */
 
-const ROUTER_PROMPT = `You are a routing assistant. Given a news article and a user question, decide whether the article contains enough information to answer the question fully — or whether a web search is needed for definitions, background, context, or facts not in the article.
+const ROUTER_PROMPT = `You are a routing assistant for a news Q&A system.
+
+Your task: decide whether the ARTICLE EXCERPT alone contains enough information to answer the user's question accurately and completely.
+
+You are NOT deciding whether web search would improve the answer.
+You are deciding whether web search is REQUIRED.
 
 Output ONLY valid JSON with this exact schema:
 {
@@ -264,17 +299,41 @@ Output ONLY valid JSON with this exact schema:
   "must_cite": boolean
 }
 
-Rules:
-- need_web = true if:
-  • The user asks "what is X", "who is X", "explain X", definitions, background, agendas, history, "why does X matter", or any context question the article does not explicitly answer.
-  • The article does not contain sufficient facts/figures to answer without speculation.
-  • The user references an entity, organisation, concept, or policy not explained in the article.
-- need_web = false if:
-  • The article contains all facts needed to answer the question.
-  • The question is about the article's narrative, summary, or opinion.
-- suggested_queries: 1–2 concise Google-style search queries to find the missing context. Make them specific and factual.
-- must_cite: true if the answer will include external facts that must be cited.
-- reason: one-sentence explanation of why web search is or isn't needed.
+Decision Rules:
+
+Set need_web = true ONLY if:
+- The question requires factual information that is NOT present in the article excerpt.
+- The user asks for:
+    • Definitions of entities not explained in the article
+    • Background history not described
+    • Legal/regulatory details not mentioned
+    • Current status beyond the article's timeframe
+    • Quantitative data not included in the excerpt
+- The answer would require introducing NEW factual claims not grounded in the article.
+
+Set need_web = false if:
+- The article excerpt contains enough information to answer through reasoning, explanation, or synthesis.
+- The user asks about implications, significance, risks, impacts, incentives, or interpretation that can be logically derived from the article.
+- The question is analytical rather than factual.
+
+Important:
+- Do NOT trigger web search just because additional context might exist.
+- Only trigger if the answer would require adding facts not in the excerpt.
+
+must_cite:
+- true ONLY if need_web = true.
+- false otherwise.
+
+suggested_queries:
+- Only provide 1–2 short factual queries if need_web = true.
+- Leave empty array if need_web = false.
+- Queries must be high-precision and directly target the missing facts.
+- Do NOT append filler words such as "authoritative source", "cite", "grounded", or instruction-like phrases.
+- Prefer the structure: "<entity/topic> <missing fact> <timeframe/location>".
+- Avoid long concatenated queries or mixing in the article headline.
+
+reason:
+- One short sentence explaining why the article is or is not sufficient.
 
 Do NOT output anything except the JSON object.`;
 
@@ -282,6 +341,47 @@ interface RouterResult {
   need_web: boolean;
   reason: string;
   suggested_queries: string[];
+  must_cite: boolean;
+  raw: string;
+}
+
+interface EvalCaseTrace {
+  case_id: string;
+  article_id: string;
+  question: string;
+  router: {
+    raw: string;
+    parsed: {
+      need_web: boolean;
+      reason: string;
+      suggested_queries: string[];
+      must_cite: boolean;
+    };
+  };
+  search: {
+    called: boolean;
+    queries: string[];
+    results: Array<{
+      title: string;
+      url: string;
+      snippet: string;
+      content: string;
+      score: number | null;
+    }>;
+  };
+  sources_used: string[];
+  answer: { text: string };
+  judge: {
+    completeness_score: number | null;
+    answer_alignment_score: number | null;
+    retrieval_relevance_score: number | null;
+    reasoning: string;
+  };
+  timing: {
+    total_ms: number;
+    router_ms: number | null;
+    search_ms: number | null;
+  };
 }
 
 async function runRouter(articleText: string, question: string): Promise<RouterResult> {
@@ -311,7 +411,13 @@ async function runRouter(articleText: string, question: string): Promise<RouterR
 
   const parseResult = safeParseJson(raw);
   if (!parseResult.ok || !parseResult.data) {
-    return { need_web: false, reason: 'Router parse failed', suggested_queries: [] };
+    return {
+      need_web: false,
+      reason: 'Router parse failed',
+      suggested_queries: [],
+      must_cite: false,
+      raw,
+    };
   }
 
   const parsed = parseResult.data;
@@ -319,6 +425,8 @@ async function runRouter(articleText: string, question: string): Promise<RouterR
     need_web: typeof parsed.need_web === 'boolean' ? parsed.need_web : false,
     reason: typeof parsed.reason === 'string' ? parsed.reason : '',
     suggested_queries: Array.isArray(parsed.suggested_queries) ? parsed.suggested_queries as string[] : [],
+    must_cite: typeof parsed.must_cite === 'boolean' ? parsed.must_cite : false,
+    raw,
   };
 
   cacheSet('router', ck, JSON.stringify(result));
@@ -330,27 +438,115 @@ async function runRouter(articleText: string, question: string): Promise<RouterR
 async function runSearch(
   queries: string[],
   userQuestion: string = ''
-): Promise<{ results: SearchResult[]; error: string | null }> {
-  if (!TAVILY_API_KEY) return { results: [], error: 'TAVILY_API_KEY not set' };
+): Promise<{
+  results: SearchResult[];
+  error: string | null;
+  queriesUsed: string[];
+  rawResults: Array<{
+    title: string;
+    url: string;
+    snippet: string;
+    content: string;
+    score: number | null;
+  }>;
+  latencyMs: number | null;
+}> {
+  if (!TAVILY_API_KEY) {
+    return {
+      results: [],
+      error: 'TAVILY_API_KEY not set',
+      queriesUsed: [],
+      rawResults: [],
+      latencyMs: null,
+    };
+  }
 
   const toRun = queries.slice(0, 2);
   const ck = cacheKey('tavily', ...toRun, userQuestion);
   const cached = cacheGet('tavily', ck);
   if (cached) {
-    try { return JSON.parse(cached) as { results: SearchResult[]; error: string | null }; } catch {}
+    try {
+      const parsed = JSON.parse(cached) as {
+        results: SearchResult[];
+        error: string | null;
+        queriesUsed?: string[];
+        rawResults?: Array<{
+          title: string;
+          url: string;
+          snippet: string;
+          content: string;
+          score: number | null;
+        }>;
+        latencyMs?: number | null;
+      };
+      return {
+        results: parsed.results ?? [],
+        error: parsed.error ?? null,
+        queriesUsed: parsed.queriesUsed ?? toRun,
+        rawResults: parsed.rawResults ?? [],
+        latencyMs: parsed.latencyMs ?? null,
+      };
+    } catch {}
   }
 
+  const searchStart = Date.now();
   const searchResult = await withRetry(
     async () => {
-      const { results, timedOut } = await searchTavily(toRun, userQuestion);
-      if (timedOut) return { results: [] as SearchResult[], error: 'Search timed out' };
-      return { results, error: null as string | null };
+      const { results, timedOut, debug } = await searchTavily(toRun, userQuestion);
+      const rawResults = Array.isArray(debug?.tavily_raw)
+        ? debug!.tavily_raw.flatMap((bucket) => {
+            const rows = (bucket as { results?: unknown[] })?.results;
+            if (!Array.isArray(rows)) return [];
+            return rows.map((row) => {
+              const r = row as {
+                title?: unknown;
+                url?: unknown;
+                snippet?: unknown;
+                content?: unknown;
+                description?: unknown;
+                score?: unknown;
+              };
+              const snippetOrContent =
+                typeof r.snippet === 'string'
+                  ? r.snippet
+                  : typeof r.content === 'string'
+                  ? r.content
+                  : typeof r.description === 'string'
+                  ? r.description
+                  : '';
+              return {
+                title: typeof r.title === 'string' ? r.title : '',
+                url: typeof r.url === 'string' ? r.url : '',
+                snippet: snippetOrContent,
+                content: typeof r.content === 'string' ? r.content : '',
+                score: typeof r.score === 'number' ? r.score : null,
+              };
+            });
+          })
+        : [];
+
+      if (timedOut) {
+        return {
+          results: [] as SearchResult[],
+          error: 'Search timed out',
+          queriesUsed: toRun,
+          rawResults,
+        };
+      }
+      return {
+        results,
+        error: null as string | null,
+        queriesUsed: toRun,
+        rawResults,
+      };
     },
     { label: 'tavily-search', ...RETRY_OPTS }
   );
+  const latencyMs = Date.now() - searchStart;
 
-  cacheSet('tavily', ck, JSON.stringify(searchResult));
-  return searchResult;
+  const out = { ...searchResult, latencyMs };
+  cacheSet('tavily', ck, JSON.stringify(out));
+  return out;
 }
 
 // formatSearchResults → use formatSearchResultsForLLM imported from search.ts
@@ -555,7 +751,12 @@ Output strict JSON:
 
 /* --- Judge 2: Completeness score --- */
 
-function completenessPrompt(question: string, answerText: string, strict: boolean): string {
+function completenessPrompt(
+  question: string,
+  answerText: string,
+  searchCalled: boolean,
+  strict: boolean
+): string {
   const prefix = strict
     ? 'Return ONLY valid minified JSON. No markdown. No prose. No code fences.\n\n'
     : '';
@@ -574,8 +775,14 @@ Rate the completeness on a 1-5 scale:
 4 = Good, thorough answer with relevant details
 5 = Excellent, comprehensive answer that fully addresses the question
 
+Also score:
+- answer_alignment_score (1-5): how directly the answer addresses the user's question (ignore citation formatting).
+- retrieval_relevance_score (1-5 or null): if web search was used, how relevant retrieved sources are for answering the question; if no web search was used, set null.
+
+Web search used for this case: ${searchCalled ? 'yes' : 'no'}
+
 Output strict JSON:
-{"score": 1-5, "reasoning": "brief explanation (1-2 sentences)"}`;
+{"completeness_score":1-5,"answer_alignment_score":1-5,"retrieval_relevance_score":1-5|null,"reasoning":"1-2 sentences"}`;
 }
 
 /* --- Judge 3: Unsupported claims --- */
@@ -666,6 +873,9 @@ async function main() {
   }
 
   const remaining = cases.filter((c) => !completedIds.has(c.case_id));
+  const runId = new Date().toISOString().replace(/[:.]/g, '-');
+  fs.mkdirSync(OUTPUTS_DIR, { recursive: true });
+  const TRACE_PATH = path.join(OUTPUTS_DIR, `traces_${runId}.jsonl`);
 
   console.log(`=== Running eval on ${cases.length} total cases (${remaining.length} remaining) ===`);
   console.log(`    Provider: Anthropic (Claude)`);
@@ -696,35 +906,52 @@ async function main() {
     let routerNeedWeb: boolean | null = null;
     let routerReason = '';
     let suggestedQueries: string[] = [];
+    let routerMustCite = false;
+    let routerRaw = '';
+    let routerLatencyMs: number | null = null;
     let searchCalled = false;
     let sourcesUsed: string[] = [];
+    let sourcesUsedUrls: string[] = [];
     let searchResultsList: SearchResult[] = [];
+    let searchRawResults: Array<{
+      title: string;
+      url: string;
+      snippet: string;
+      content: string;
+      score: number | null;
+    }> = [];
+    let searchQueriesUsed: string[] = [];
+    let searchLatencyMs: number | null = null;
     let searchError: string | null = null;
     let answerText = '';
     let pipelineError: string | null = null;
 
     try {
       // Step 1: Router
+      const routerStart = Date.now();
       const routing = await runRouter(articleText, c.question);
+      routerLatencyMs = Date.now() - routerStart;
       routerNeedWeb = routing.need_web;
       routerReason = routing.reason;
       suggestedQueries = routing.suggested_queries;
+      routerMustCite = routing.must_cite;
+      routerRaw = routing.raw;
       console.log(`  router: need_web=${routing.need_web}, queries=${routing.suggested_queries.length}`);
 
       // Step 2: Search (if needed) — no LLM rate limit, just inter-step throttle
       let searchContext = '';
       if (routing.need_web && routing.suggested_queries.length > 0) {
         searchCalled = true;
-        const enhancedQueries = enhanceSearchQuery(
-          routing.suggested_queries,
-          c.article_title,
-          c.question
-        );
-        console.log(`  enhanced queries: ${enhancedQueries.map((q) => q.slice(0, 80)).join(' | ')}`);
-        const searchResult = await runSearch(enhancedQueries, c.question);
+        const exactQueries = [...routing.suggested_queries];
+        console.log(`  queries: ${exactQueries.map((q) => q.slice(0, 80)).join(' | ')}`);
+        const searchResult = await runSearch(exactQueries, c.question);
         searchResultsList = searchResult.results;
+        searchRawResults = searchResult.rawResults;
+        searchQueriesUsed = searchResult.queriesUsed;
+        searchLatencyMs = searchResult.latencyMs;
         searchError = searchResult.error;
         sourcesUsed = searchResult.results.map((r) => r.source);
+        sourcesUsedUrls = searchResult.results.map((r) => r.url);
         if (searchResult.results.length > 0) {
           searchContext = formatSearchResultsForLLM(searchResult.results);
         }
@@ -733,6 +960,12 @@ async function main() {
 
       // Step 3: Answer
       answerText = await generateAnswer(articleText, c.question, searchContext);
+      if (searchCalled && searchResultsList.length > 0) {
+        answerText = enforceDeterministicSourcesSection(
+          answerText,
+          searchResultsList.map((r) => ({ title: r.title, url: r.url }))
+        );
+      }
       console.log(`  answer: ${answerText.length} chars`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -751,19 +984,6 @@ async function main() {
     const citationCoverage = searchCalled && citationsPresent;
     const badDomainsPresent = badDomainsFound.length > 0;
 
-    // Retrieval alignment (Jaccard)
-    let alignmentScore: number | null = null;
-    let lowAlignment = false;
-    if (searchCalled && searchResultsList.length > 0) {
-      const qTokens = searchTokenize(c.question);
-      const jaccardScores = searchResultsList.map((r) =>
-        searchJaccard(qTokens, searchTokenize(r.snippet))
-      );
-      alignmentScore =
-        jaccardScores.reduce((s, v) => s + v, 0) / jaccardScores.length;
-      lowAlignment = alignmentScore < 0.10;
-    }
-
     // Low-cred domain ratio
     const lowCredCount = searchResultsList.filter((r) =>
       LOW_CRED_DOMAINS.some((d) => r.source.includes(d))
@@ -776,6 +996,8 @@ async function main() {
     let shouldSearchCorrect: boolean | null = null;
     let shouldSearchReasoning = 'Skipped';
     let completenessScore: number | null = null;
+    let answerAlignmentScore: number | null = null;
+    let retrievalRelevanceScore: number | null = null;
     let completenessReasoning = 'Skipped';
     let unsupportedClaims: boolean | null = null;
     let unsupportedExplanation = 'Skipped';
@@ -809,14 +1031,33 @@ async function main() {
       // Judge 2: Completeness
       try {
         const j2 = await runJudgeWithRetry(
-          (strict) => completenessPrompt(c.question, answerText, strict),
-          { score: 0, reasoning: 'Judge failed' } as Record<string, unknown>,
+          (strict) => completenessPrompt(c.question, answerText, searchCalled, strict),
+          {
+            completeness_score: 0,
+            answer_alignment_score: 0,
+            retrieval_relevance_score: null,
+            reasoning: 'Judge failed',
+          } as Record<string, unknown>,
           'judge-completeness'
         );
         diag.rawOutputs.push(j2.raw);
         if (j2.parseOk) {
-          const rawScore = typeof j2.data.score === 'number' ? j2.data.score : 0;
-          completenessScore = rawScore > 0 ? Math.max(1, Math.min(5, Math.round(rawScore))) : null;
+          const rawCompleteness =
+            typeof j2.data.completeness_score === 'number' ? j2.data.completeness_score : 0;
+          const rawAnswerAlignment =
+            typeof j2.data.answer_alignment_score === 'number' ? j2.data.answer_alignment_score : 0;
+          const rawRetrieval =
+            typeof j2.data.retrieval_relevance_score === 'number'
+              ? j2.data.retrieval_relevance_score
+              : null;
+          completenessScore =
+            rawCompleteness > 0 ? Math.max(1, Math.min(5, Math.round(rawCompleteness))) : null;
+          answerAlignmentScore =
+            rawAnswerAlignment > 0 ? Math.max(1, Math.min(5, Math.round(rawAnswerAlignment))) : null;
+          retrievalRelevanceScore =
+            searchCalled && rawRetrieval !== null
+              ? Math.max(1, Math.min(5, Math.round(rawRetrieval)))
+              : null;
           completenessReasoning = typeof j2.data.reasoning === 'string' ? j2.data.reasoning : 'No reasoning';
         } else {
           diag.allParsed = false;
@@ -862,6 +1103,40 @@ async function main() {
 
     const latencyTotal = Date.now() - totalStart;
 
+    const caseTrace: EvalCaseTrace = {
+      case_id: c.case_id,
+      article_id: c.article_id,
+      question: c.question,
+      router: {
+        raw: routerRaw,
+        parsed: {
+          need_web: Boolean(routerNeedWeb),
+          reason: routerReason,
+          suggested_queries: suggestedQueries,
+          must_cite: routerMustCite,
+        },
+      },
+      search: {
+        called: searchCalled,
+        queries: searchQueriesUsed,
+        results: searchRawResults,
+      },
+      sources_used: sourcesUsedUrls,
+      answer: { text: answerText },
+      judge: {
+        completeness_score: completenessScore,
+        answer_alignment_score: answerAlignmentScore,
+        retrieval_relevance_score: retrievalRelevanceScore,
+        reasoning: completenessReasoning,
+      },
+      timing: {
+        total_ms: latencyTotal,
+        router_ms: routerLatencyMs,
+        search_ms: searchLatencyMs,
+      },
+    };
+    fs.appendFileSync(TRACE_PATH, JSON.stringify(caseTrace) + '\n');
+
     results.push({
       case_id: c.case_id,
       article_id: c.article_id,
@@ -880,8 +1155,6 @@ async function main() {
       bad_domains_present: badDomainsPresent,
       bad_domains: badDomainsFound,
       ...citationAnalysis,
-      alignment_score: alignmentScore,
-      low_alignment: lowAlignment,
       low_cred_count: lowCredCount,
       total_results: totalResultsCount,
       low_cred_ratio: lowCredRatio,
@@ -889,6 +1162,8 @@ async function main() {
       should_search_correct: shouldSearchCorrect,
       should_search_reasoning: shouldSearchReasoning,
       completeness_score: completenessScore,
+      answer_alignment_score: answerAlignmentScore,
+      retrieval_relevance_score: retrievalRelevanceScore,
       completeness_reasoning: completenessReasoning,
       unsupported_claims: unsupportedClaims,
       unsupported_explanation: unsupportedExplanation,
@@ -919,6 +1194,7 @@ async function main() {
   console.log('\n' + summary);
   fs.writeFileSync(SUMMARY_PATH, summary);
   console.log(`✅ Summary written to ${SUMMARY_PATH}`);
+  console.log(`✅ Case traces written to ${TRACE_PATH}`);
 }
 
 /* ================================================================== */
@@ -949,8 +1225,6 @@ function makeFailedResult(c: DatasetCase, error: string, latency: number): EvalR
     has_sources_section_near_end: false,
     sources_section_has_url: false,
     end_sources_with_url: false,
-    alignment_score: null,
-    low_alignment: false,
     low_cred_count: 0,
     total_results: 0,
     low_cred_ratio: 0,
@@ -958,6 +1232,8 @@ function makeFailedResult(c: DatasetCase, error: string, latency: number): EvalR
     should_search_correct: null,
     should_search_reasoning: 'Skipped',
     completeness_score: null,
+    answer_alignment_score: null,
+    retrieval_relevance_score: null,
     completeness_reasoning: 'Skipped',
     unsupported_claims: null,
     unsupported_explanation: 'Skipped',
@@ -1050,16 +1326,31 @@ function computeSummary(results: EvalResult[]): string {
       ? ((inlineTagCount / searchCalledCases.length) * 100).toFixed(1)
       : 'N/A';
 
-  // Retrieval alignment (Jaccard)
-  const alignmentCases = searchCalledCases.filter((r) => r.alignment_score !== null);
-  const avgAlignment =
-    alignmentCases.length > 0
-      ? (alignmentCases.reduce((s, r) => s + (r.alignment_score ?? 0), 0) / alignmentCases.length).toFixed(3)
+  const answerAlignmentCases = results.filter((r) => r.answer_alignment_score !== null);
+  const avgAnswerAlignment =
+    answerAlignmentCases.length > 0
+      ? (
+          answerAlignmentCases.reduce((s, r) => s + (r.answer_alignment_score ?? 0), 0) /
+          answerAlignmentCases.length
+        ).toFixed(2)
       : 'N/A';
-  const lowAlignmentCount = alignmentCases.filter((r) => r.low_alignment).length;
-  const lowAlignmentRate =
-    alignmentCases.length > 0
-      ? ((lowAlignmentCount / alignmentCases.length) * 100).toFixed(1)
+  const lowAnswerAlignmentCount = answerAlignmentCases.filter(
+    (r) => (r.answer_alignment_score ?? 0) <= 2
+  ).length;
+  const lowAnswerAlignmentRate =
+    answerAlignmentCases.length > 0
+      ? ((lowAnswerAlignmentCount / answerAlignmentCases.length) * 100).toFixed(1)
+      : 'N/A';
+
+  const retrievalRelevanceCases = searchCalledCases.filter(
+    (r) => r.retrieval_relevance_score !== null
+  );
+  const avgRetrievalRelevance =
+    retrievalRelevanceCases.length > 0
+      ? (
+          retrievalRelevanceCases.reduce((s, r) => s + (r.retrieval_relevance_score ?? 0), 0) /
+          retrievalRelevanceCases.length
+        ).toFixed(2)
       : 'N/A';
 
   // Low-cred domain ratio
@@ -1124,8 +1415,9 @@ function computeSummary(results: EvalResult[]): string {
 | URL Coverage | ${urlCovRate}${urlCovRate !== 'N/A' ? `% (${urlCovCount}/${searchCalledCases.length})` : ''} |
 | Markdown Link Coverage | ${mdLinkRate}${mdLinkRate !== 'N/A' ? `% (${mdLinkCount}/${searchCalledCases.length})` : ''} |
 | Inline Source Tag Rate | ${inlineTagRate}${inlineTagRate !== 'N/A' ? `% (${inlineTagCount}/${searchCalledCases.length})` : ''} |
-| Avg Retrieval Alignment | ${avgAlignment}${avgAlignment !== 'N/A' ? ` (n=${alignmentCases.length})` : ''} |
-| % Low Alignment Cases | ${lowAlignmentRate}${lowAlignmentRate !== 'N/A' ? `% (${lowAlignmentCount}/${alignmentCases.length})` : ''} |
+| Avg Answer Alignment Score | ${avgAnswerAlignment}${avgAnswerAlignment !== 'N/A' ? `/5 (n=${answerAlignmentCases.length})` : ''} |
+| % Low Answer Alignment (<=2) | ${lowAnswerAlignmentRate}${lowAnswerAlignmentRate !== 'N/A' ? `% (${lowAnswerAlignmentCount}/${answerAlignmentCases.length})` : ''} |
+| Avg Retrieval Relevance Score | ${avgRetrievalRelevance}${avgRetrievalRelevance !== 'N/A' ? `/5 (n=${retrievalRelevanceCases.length})` : ''} |
 | Avg Low Cred Ratio | ${avgLowCredRatio}${avgLowCredRatio !== 'N/A' ? `% (n=${searchCalledCases.length})` : ''} |
 | % Low Cred Dominance | ${lowCredDominanceRate}${lowCredDominanceRate !== 'N/A' ? `% (${lowCredDominantCount}/${searchCalledCases.length})` : ''} |
 | Bad Domain Rate | ${badDomainRate}${badDomainRate !== 'N/A' ? `% (${badDomainCount}/${searchCalledCases.length})` : ''} |
