@@ -1,0 +1,272 @@
+{
+  "case_id": "social_work_ai_02",
+  "article_title": "Social workers' AI tool makes 'gibberish' transcripts of accounts from children",
+  "question": "What is the Ada Lovelace Institute and why is its research considered credible in UK tech policy discussions?",
+  "router_need_web": true,
+  "router_reason": "The article does not provide background information on the Ada Lovelace Institute or explain why its research is considered credible, which is necessary to fully answer the question.",
+  "router_suggested_queries": [
+    "What is the Ada Lovelace Institute?",
+    "Why is the Ada Lovelace Institute's research considered credible in UK tech policy discussions?"
+  ],
+  "enhanced_queries": [
+    "What is the Ada Lovelace Institute?",
+    "Why is the Ada Lovelace Institute's research considered credible in UK tech policy discussions?"
+  ],
+  "tavily_request_payload": [
+    {
+      "api_key": "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",
+      "query": "What is the Ada Lovelace Institute?",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    },
+    {
+      "api_key": "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",
+      "query": "Why is the Ada Lovelace Institute's research considered credible in UK tech policy discussions?",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    }
+  ],
+  "tavily_raw_response": [
+    {
+      "query": "What is the Ada Lovelace Institute?",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://www.adalovelaceinstitute.org/about/impact/",
+          "title": "Impact - Ada Lovelace Institute",
+          "content": "We are committed to delivering and measuring impact in our work, to achieve real change in the systems and approaches that govern data and AI. At the Seoul summit and the San Francisco convening, Ada argued for a renewed focus on context-specific evaluations of AI systems in collaboration with sectoral regulators and new statutory powers to replace the existing voluntary approach. The UK Conservative government’s white paper on AI regulation, proposing a ‘contextual, sector-based regulatory framework’, cited Ada’s blog post on the value chain of general-purpose AI three times. At the Seoul AI Safety Summit and the San Francisco convening, Ada argued for a renewed focus on context-specific evaluations of AI systems in collaboration with sectoral regulators and new statutory powers to replace the existing voluntary approach. The Ada Lovelace Institute is an independent research institute with a mission to ensure data and AI work for people and society.",
+          "score": 0.98557,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/",
+          "title": "Ada Lovelace Institute",
+          "content": "An independent research institute with a mission to ensure data and AI work for people and society. New polling shows the public expect AI to be governed with far more rigour than current policy delivers. Are AI advisers, agents and companions regulated in the UK? How can the UK AI Growth Lab contribute to governing AI in the public interest? Ensuring that data and AI work for people and society is an immense task and not one we can achieve alone. The Ada Lovelace Institute is hosting a panel session at the India AI Impact Summit on 18 February 2026. Join our discussion on the development and market distribution of Advanced AI Assistants, the risks they may pose and their governance. ### The UK’s industrial approach to AI – what’s next? Join the Ada Lovelace Institute as we make sense of the current AI policy landscape and debate the way forward for the UK's industrial approach to AI.",
+          "score": 0.9854,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/about/",
+          "title": "About - Ada Lovelace Institute",
+          "content": "Our core beliefs are that the benefits of data and AI must be justly and equitably distributed, and they must enhance individual and social wellbeing. The Ada Lovelace Institute was established by the Nuffield Foundation in early 2018, in collaboration with The Alan Turing Institute, the Royal Society, the British Academy, the Royal Statistical Society, the Wellcome Trust, Luminate, techUK and the Nuffield Council on Bioethics. We are an independent research institute with a mission to ensure that data and AI work for people and society. We believe that a world where data and AI work for people and society is a world in which the opportunities, benefits and privileges generated by data and AI are justly and equitably distributed and experienced. the development of data-driven technologies, and will represent people in those. We focus not on the types of technologies we want to build, but on. power of data and AI is used and harnessed in ways that maximise social wellbeing.",
+          "score": 0.98531,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/our-work/how-we-work/",
+          "title": "How we work - Ada Lovelace Institute",
+          "content": "We explore how data and AI interact with society; examine which governance models work in the public interest; and interrogate power imbalances. We focus our research, practice and policy engagement on the following objectives:. Our projects prioritise cross-team collaboration across four research domains. ## Research domains. ### Law & Policy. Interrogating how existing and emerging AI and data law, regulation, governance and policy meets the needs of people and society. ### Public Participation & Research. Ensuring that the voices of people affected by data and AI contribute to building and shaping evidence, research, policy and practices. ### Social and Economic Policy. Shaping how political choices and public services will be designed in the information age. The Ada Lovelace Institute is an independent research institute with a mission to ensure data and AI work for people and society. You can opt out at any time through a link on the bottom of the newsletter email. Read our privacy policy for more information. #### Quick Links.",
+          "score": 0.98437,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.turing.ac.uk/research/research-projects/ada-lovelace-institute",
+          "title": "Ada Lovelace Institute",
+          "content": "Image 7: The Turing Online Learning Platform - Free courses, from The Alan Turing Institute. Image 12: People working in the Turing offices. Get the latest on data science and AI at the Turing with Turing News or Turing Events, keep in the loop with CETaS, or discover Skills at the Turing. The Alan Turing Institute is partnering with the Nuffield Foundation on the Ada Lovelace Institute, launching in 2018, to examine the profound ethical and social issues arising from the use of data, algorithms and artificial intelligence, and to ensure they are harnessed for social well-being. “As the national institute for data science and artificial intelligence, we at The Alan Turing Institute are committed to ensuring that the social and ethical implications of these transformative technologies are fully understood, and that the benefits they accrue can be shared across society. “A particular privilege of working at The Alan Turing Institute is our ability to honour the life and legacy of Alan Turing through our ground-breaking data science and AI research.",
+          "score": 0.98336,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.un.org/digital-emerging-technologies/sites/www.un.org.techenvoy/files/GDC-submission_Ada-Lovelace-Institute.pdf",
+          "title": "[PDF] Ada Lovelace Institute - UN Digital Compact consultation response",
+          "content": "The Ada Lovelace Institute is an independent research organisation with a mission to ensure data and AI work for people and society.",
+          "score": 0.98134,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://data.org/organizations/ada-lovelace-institute/",
+          "title": "Ada Lovelace Institute - data.org",
+          "content": "# Ada Lovelace Institute. The mission of the Ada Lovelace Institute is to ensure that data and AI work for people and society. The institute believes that a world where data and AI work for people and society is a world in which the opportunities, benefits, and privileges generated by data and AI are justly and equitably distributed and experienced. ## Site footer. ### Stay Connected. Sign up for opportunities, latest news, and upcoming events. ### Company. ### Connect.",
+          "score": 0.97804,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/resource/foundation-models-explainer/",
+          "title": "What is a foundation model? - Ada Lovelace Institute",
+          "content": "This explainer is for anyone who wants to learn more about foundation models, also known as 'general-purpose artificial intelligence' or 'GPAI'. An emerging type of AI system is a ‘**foundation model’**, sometimes called a **‘general-purpose AI’** or **‘GPAI’** system. This explainer is for anyone who wants to learn more about foundation models, and it will be particularly useful for people working in technology policy and regulation. In this explainer we use the term ‘foundation models’ – which are also known as ‘general-purpose AI’ or ‘GPAI’. We have chosen to use ‘foundation models’ as the core term to describe these technologies. We also explain other related terminology and concepts, to help distinguish what is and isn’t a foundation model. In this explainer, we refer to the UK Data Ethics Framework’s definition of AI: ‘AI can be defined as the use of digital technology to create systems capable of performing tasks commonly thought to require intelligence.’ For a full definition, see Table 3: Glossary.",
+          "score": 0.97514,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.globalgovernmentforum.com/making-ai-work-for-people-and-society/",
+          "title": "Making AI work for people and society - Global Government Forum",
+          "content": "At the Ada Lovelace Institute, an independent research institute with the mission to ensure that data and AI work for people and society, we undertake research to understand public needs and expectations in the age of AI and seek to shape policy choices and public sector institutions to meet those needs. It’s clear that governments around the world are grappling with many of the same issues related to data and AI in public services so I’m delighted that Global Government Forum has invited me to regularly share some of the Institute’s emerging thinking and preview our research and policy commentary with their international audience of public sector leaders and civil servants. We’ve undertaken research engaging with frontline professionals, public services, expert bodies, citizens and affected people, regulators and government departments to explore how different actors across the public sector could use AI in the public interest and with public legitimacy.",
+          "score": 0.97296,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://github.com/AdaLovelaceInstitute",
+          "title": "Ada Lovelace Institute - GitHub",
+          "content": "You signed in with another tab or window. You switched accounts on another tab or window. ## Popular repositories Loading. 1. how-do-people-feel-about-ai  how-do-people-feel-about-ai  Public. Survey results from first survey of UK public opinion on facial recognition technology (July 2019). 4. facial-recognition-technology-terms  facial-recognition-technology-terms  Public. 5. wave-2---how-do-people-feel-about-AI-  wave-2---how-do-people-feel-about-AI-  Public. ### Repositories. Showing 7 of 7 repositories. * wave-2---how-do-people-feel-about-AI-  Public. AdaLovelaceInstitute/wave-2---how-do-people-feel-about-AI-’s past year of commit activity. 1  0   0  0  Updated Aug 13, 2025. * political-views-and-attitudes-to-AI-  Public. AdaLovelaceInstitute/political-views-and-attitudes-to-AI-’s past year of commit activity. 0   0   0  0  Updated Mar 19, 2025. * how-do-people-feel-about-ai  Public. AdaLovelaceInstitute/how-do-people-feel-about-ai’s past year of commit activity. AdaLovelaceInstitute/covid-explorer’s past year of commit activity. AdaLovelaceInstitute/data-divide’s past year of commit activity. 3  0   0  0  Updated Mar 23, 2021. * facial-recognition-technology-terms  Public. AdaLovelaceInstitute/facial-recognition-technology-terms’s past year of commit activity. 1  1  0  0  Updated Nov 12, 2019. Survey results from first survey of UK public opinion on facial recognition technology (July 2019). AdaLovelaceInstitute/beyond-face-value’s past year of commit activity. 1  1  0  0  Updated Sep 25, 2019.",
+          "score": 0.97088,
+          "raw_content": null,
+          "from_cache": true
+        }
+      ],
+      "response_time": 2.28,
+      "request_id": "af23d5c0-c67e-4ac7-b599-7cd69b823335"
+    },
+    {
+      "query": "Why is the Ada Lovelace Institute's research considered credible in UK tech policy discussions?",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://www.adalovelaceinstitute.org/evidence-review/public-attitudes-data-regulation/",
+          "title": "Who cares what the public think? - Ada Lovelace Institute",
+          "content": "We focus on research conducted in the UK within recent years. The oldest evidence included dates from 2014, and the vast majority has been published since 2018. We chose this focus to ensure findings are relevant, given that events of recent years have had a profound influence on public attitudes towards technology, such as the Cambridge Analytica scandal, the growth and prominence of large technology companies in society and the impacts of the COVID-19 pandemic. [...] To support policymakers to engage with the breadth of existing research, we have reviewed evidence from nearly 40 studies about UK public attitudes to data conducted in recent years. The evidence presented in this paper is drawn from the body of research the Ada Lovelace Institute has used to inform our own policy positions and responses to recent government consultations.\n\nGiven the urgent nature of the question of how to regulate data with public support, this paper is not an exhaustive synthesis of every piece of research published on public attitudes towards data. Instead, it represents a curated overview of credible research that is relevant to recent data-related consultations, inquiries and debates.\n\nIn our review of this research, five key findings have emerged: [...] The research reviewed here represents only part of a vast body of work conducted in academia, civil society, the public sector and industry. Much of this research covers public attitudes towards data beyond just regulation: covering issues like inequality, privacy, agency and more. As data and data-driven technologies become increasingly central to our everyday lives, it is ever more important to bring these evidence-based insights together, identify key messages and themes, and develop policy that benefits people and society first and foremost.\n\nThe research reviewed for this briefing raises further questions that researchers and policymakers must consider:",
+          "score": 0.9999286,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/report/ai-public-good/",
+          "title": "Making good | Ada Lovelace Institute",
+          "content": "Despite attempts to rein in the rhetoric and frame AI as part of a longer technological change,(#_ftn8) the discourse of the AI revolution remains one of the most powerful ideas driving UK policy and industry research and development today. At its core is a contested set of ideas about the necessity and inevitability of technology-driven innovation, which mobilises a constellation of different advocates and cautioners in policy, regulation, industry and civil society. [...] Closing this gap between policy ambition and publics’ expectations is important, so that technology can develop in alignment, rather than to an agenda driven by economically pressured policymakers and commercially driven technology companies. Evidence about publics’ views and expectations can help to bridge these differences.\n\nIn presenting the perspectives and lived experience of these people, we are able to signpost where and why public confidence in the current directions of AI policy is low and where trust with publics should be better established. We are also amplifying the creative, generative suggestions that publics have for AI-supported futures and conveying their forceful case for consensual and public-centred policy-making around AI in the UK. [...] That the AI revolution can bring rapid societal benefits as well as economic growth has become an article of faith for leaders and decision-makers in the UK government, as well as the global tech industry. The UK government recently announced its commitment to ‘shape the AI revolution’ at both a domestic and global level through the AI Opportunities Action Plan.(#_ftn5) Meanwhile, technology companies cast the AI revolution as the key to humanity’s survival, provided we can circumvent its existential risk, invoking a vision of technologies seamlessly integrated into societies.(#_ftn6) (#_ftn7)",
+          "score": 0.99991107,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/about/impact/",
+          "title": "Impact - Ada Lovelace Institute",
+          "content": "In the UK, after a change in government, a new data bill was introduced, on which Ada briefed Parliament. The UK Conservative government’s white paper on AI regulation, proposing a ‘contextual, sector-based regulatory framework’, cited Ada’s blog post on the value chain of general-purpose AI three times. Our initial response – welcoming the engagement with AI harms but highlighting the failure to include legislation – was covered by BBC News, The Times and The Guardian, and we authored an opinion piece for the New Statesman. [...] We have produced timely evidence in response to the needs of policymakers and informed and influenced emerging policy responses, both in the UK and the EU.\n\n### Putting people at the centre of AI\n\nAda and the Alan Turing Institute’s nationally representative survey of public attitudes to AI  has completed its second wave. This vital evidence helps to understand people’s views of technologies from autonomous weapons to cancer-predicting AI tools. It also enables us to track attitudes over time and see where legitimacy and trust might be changing. [...] The highest profile forum for AI policy in recent years has been the global AI Safety Summit, attended by representatives from governments, industry, civil society and academia. The first summit was held at Bletchley Park in the UK and Francine Bennett, Ada’s Interim Director, was one of a handful of civil society representatives to attend the Summit. This was followed by two more global meetings of international policymakers in Seoul and San Francisco.\n\nAt the Seoul summit and the San Francisco convening, Ada argued for a renewed focus on context-specific evaluations of AI systems in collaboration with sectoral regulators and new statutory powers to replace the existing voluntary approach.",
+          "score": 0.99980134,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/press-release/nearly-9-in-10-people-in-the-uk-support-independent-regulation-of-ai/",
+          "title": "Nearly 9 in 10 people in the UK support independent regulation of AI",
+          "content": "Nuala Polo, UK Public Policy Lead at the  Ada Lovelace Institute, said:\n\n> “Our research is clear: there is a major misalignment between what the UK public want and what the government is offering in terms of AI regulation. The government is betting big on AI, but success requires public trust. When people do not trust that government policy will protect them, they are less likely to adopt new technologies, and more likely to lose confidence in public institutions and services, including the government itself.”\n\nMichael Birtwistle, Associate Director at the Ada Lovelace Institute, said: [...] Skip to content \n\nAda Lovelace Institute\n\nPress release\n\n# Nearly 9 in 10 people in the UK support independent regulation of AI\n\nOur polling reveals that the UK public prioritise AI safety and positive social impacts over economic gains, speed of innovation and competition\n\n4 December 2025\n\nReading time:  2 minutes\n\nShare this page\n\nAs momentum behind meaningful legislation on AI in the UK has appeared to stall, new research from the Ada Lovelace Institute shows that this delay – and the government’s broader shift away from regulation – is increasingly out of step with public attitudes.",
+          "score": 0.9997918,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/policy-briefing/great-expectations/",
+          "title": "Great (public) expectations | Ada Lovelace Institute",
+          "content": "As momentum behind meaningful legislation appears to stall, this briefing presents new research showing that this delay – and the government’s broader shift away from regulation – is increasingly out of step with public attitudes. The research examines not only whether people support regulation, but also how they expect it to function, and where gaps between public expectations and policy ambition may lie. [...] Skip to content \n\nAda Lovelace Institute\n\nPolicy Briefing\n\n# Great (public) expectations\n\nNew polling shows the public expect AI to be governed with far more rigour than current policy delivers\n\nNuala Polo  ,   Roshni Modhvadia\n\n4 December 2025\n\nReading time:  23 minutes\n\nResearch domains\n:   Law & Policy Public Participation & Research\n\nKeywords\n:   Public attitudes Public trust AI governance AI regulation AI policy\n\nShare this page\n\n## Key insights\n\nIn the King’s Speech in July 2024, the UK government promised to introduce statutory legislation on frontier AI models. However, as 2025 draws to a close, the anticipated consultation on an AI Bill has yet to appear, leaving the UK without clear rules for managing some of today’s most powerful technologies. [...] ## Introduction\n\nSince coming into power, the UK government has demonstrated strong political will to invest in AI, scale its deployment and embed it across society – including through the UK-US tech prosperity deal promising £31 billion to develop UK AI infrastructure. However, the government has given few indications of its intentions to match this focus on innovation and adoption with the development of robust safeguards.",
+          "score": 0.9995728,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/our-work/how-we-work/public-participation-research/",
+          "title": "Public Participation & Research | Ada Lovelace Institute",
+          "content": "Our work prioritises people’s ability to think about and discuss the societies that work for them, and where and how technology can support positive future visions. These public views can help with contested technology uses and trade-offs, to support the benefits of AI and data-driven technologies and address the challenges. But despite growing interest in public engagement and participation in policy decision-making, policy professionals, governments and industry are still sometimes hesitant to consider the outcomes of these processes meaningfully. Our work supports both policymakers working towards governance and regulation and companies that are developing and deploying new technologies to have a robust understanding of public attitudes to data and AI, as well as how to involve people [...] attitudes to data and AI, as well as how to involve people in decisions. [...] AI uses can only be legitimate and trustworthy if people’s views and experiences are taken into account, and if people – especially minoritised groups and people, who are often furthest removed from opportunities and benefits of AI and face the biggest impacts from these technologies – are involved in how decisions are made.\n\nWhy we listen to diverse publics\n\nOur societies are diverse in many ways. Historic imbalances of power mean that some individuals and groups are more represented than others in both data and technology use, and more exposed than others to the opportunities, benefits, risks or harms of different AI uses. There are therefore many publics whose views matter in the creation and regulation of AI.",
+          "score": 0.9993333,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/report/regulating-ai-in-the-uk/",
+          "title": "Regulating AI in the UK | Ada Lovelace Institute",
+          "content": "The UK Government’s policy paper published in March 2023, and the subsequent announcements of the Foundation Model Taskforce and AI Safety Summit, are only the latest developments in the UK’s journey towards the more comprehensive regulation of AI systems. So far this journey has included: [...] The Ada Lovelace Institute has welcomed these announcements as a sign of the UK’s engagement with the difficult regulatory challenge of governing AI. The Government has adopted several recommendations set out in our report Regulate to innovate, such as the introduction of domain-neutral statutory rules for AI systems for implementation by regulators, and the creation of new central functions to oversee and support this process.(#_ftn18) [...] One area that should be considered in this regard is the introduction of greater powers to request information of companies developing, deploying or using AI systems, and to compel those organisations to make that information available more widely when appropriate. Box 9 discusses this, and Recommendation 17 on mandatory reporting requirements is also relevant.",
+          "score": 0.9990746,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.techuk.org/resource/how-has-public-trust-in-data-fared-over-the-last-five-years.html",
+          "title": "How has public trust in data fared over the last five years? - techUK",
+          "content": "Associate Director, The Ada Lovelace Institute\n\nImogen is Associate Director at the Ada Lovelace Institute, where she is responsible for creating social change through developments to policy, law, regulation and public service delivery. She is a Policy Fellow at Cambridge University’s Centre for Science and Policy. [...] The inauguration of the techUK Digital Ethics summit reflected a growing interest in addressing emerging technologies’ effects on society.  While the UK Government was creating the Centre for Data Ethics and Innovation (CDEI), the Nuffield Foundation – with partners including techUK, the Alan Turing Institute and the Royal Society – announced their intention to create an independent body with a mission to ensure that data and AI worked for people and society. A year later, that became the Ada Lovelace Institute.",
+          "score": 0.9989759,
+          "raw_content": null
+        },
+        {
+          "url": "https://institute.global/insights/tech-and-digitalisation/what-the-uk-thinks-about-ai-building-public-trust-to-accelerate-adoption",
+          "title": "What the UK Thinks About AI: Building Public Trust to Accelerate ...",
+          "content": "These expectations are occurring against a backdrop of growing concerns about AI risks. The same study by the Ada Lovelace Institute and The Alan Turing Institute also showed that while perceptions of AI’s beneficial impact have remained stable, concerns around AI uses have increased since 2022/2023. This suggests that familiarity is not automatically breeding acceptance – instead, greater awareness may be highlighting potential problems. [...] Yet the picture is not all bleak for those who want the UK to seize the opportunities of AI. Surveys conducted by the Department for Science, Innovation & Technology (DSIT),[\\_] The Alan Turing Institute and the Ada Lovelace Institute[\\_] have found that people feel more positively about well-defined AI use cases with tangible benefits. For example, people appreciate the use of AI to assess cancer risk. Further, comfort with AI is linked to the presence of safeguards – for instance those related to data security, explanations for AI-driven decisions and human oversight. This suggests that there is much political leaders can do to bring the public on board and improve attitudes towards AI.\n\nPolicy Implications and Recommendations [...] Against this background, it is not surprising that the public wants the government to address AI risks. Previous research by the Ada Lovelace Institute and The Alan Turing Institute has highlighted that the public expects robust regulations, procedures for appealing decisions, security of personal information, explanations on how decisions are made, monitoring to check for discrimination and human involvement. Crucially, the public also expects the government to play a role in ensuring that AI systems are safe, rather than leaving this task entirely to private companies. It is also worth noting the 10 per cent increase across the two waves of the survey in the percentage of people who say that laws and regulations would make them more comfortable with AI.\n\nFigure 17",
+          "score": 0.9987649,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.uktech.news/news/government-and-policy/uk-ai-regulation-ada-lovelace-report-20230719",
+          "title": "UK AI regulation has 'significant gaps' - Ada Lovelace report - UKTN",
+          "content": "The independent research institute, which is funded by the Nuffield Foundation, also noted that governing AI would be resource-intensive. It called for regulators and relevant civil servants to receive “dramatically” increased funding for AI-specific duties.\n\nThe report also took issue with the timeline of the government’s plan, which includes at least one year before implementation. According to the institute, the pace at which AI is moving calls for swifter action.\n\n“The government rightfully recognises that the UK has a unique opportunity to be a world leader in AI regulation and the prime minister should be commended for his global leadership on this issue,” said Michael Birtwistle, associate director at the Ada Lovelace Institute. [...] “However, the UK’s credibility on AI regulation rests on the government’s ability to deliver a world-leading regulatory regime at home.”\n\nBirtwistle added that while efforts towards international coordination are “very welcome”, they are “not sufficient” and therefore the government must “strengthen its domestic proposals for regulation if it wants to be taken seriously on AI and achieve its global ambitions”.\n\nForeign Secretary James Cleverly spoke yesterday to the UN Security Council about the need for international players to come together to manage the growth of AI.\n\nThe report marks one of the latest of several high-profile criticism of the prime minister’s plan to govern the rapidly developing industry. [...] ## Register for Free\n\nBookmark your favorite posts, get daily updates, and enjoy an ad-reduced experience.\n\nAlready have an account? Log in\n\n Skip to content\n\n News\n Insights\n\n  + Interviews\n  + Opinion\n  + Analysis\n Tech Hubs\n  + #### Tech Hubs\n  + London\n  + North East\n  + West Midlands\n  + Wales\n  + South East\n  + North West\n  + East Midlands\n  + Scotland\n  + South West\n  + East of England\n  + Yorkshire & Humber\n  + Northern Ireland\n Reports\n Podcast\n Events\n Jobs\n Login\n\nLog in Subscribe\n\nLogin to remove this ad\n\nNews / Policy & Regulation\n\n# UK AI regulation has ‘significant gaps’ – Ada Lovelace report\n\nPolicy & Regulation Wed 19 Jul 2023\n\nBookmark\n\nOscar Hornstein    \n Senior Reporter\n\n Share this\n Share on Facebook\n Share on Twitter\n Share on LinkeIn",
+          "score": 0.99832565,
+          "raw_content": null
+        }
+      ],
+      "response_time": 2.21,
+      "request_id": "7a77a19e-d818-4043-928d-3533147a3fa6"
+    }
+  ],
+  "parsed_search_results": [
+    {
+      "title": "[PDF] Ada Lovelace Institute - UN Digital Compact consultation response",
+      "url": "https://www.un.org/digital-emerging-technologies/sites/www.un.org.techenvoy/files/GDC-submission_Ada-Lovelace-Institute.pdf",
+      "source": "un.org",
+      "snippet": "The Ada Lovelace Institute is an independent research organisation with a mission to ensure data and AI work for people and society."
+    },
+    {
+      "title": "Ada Lovelace Institute",
+      "url": "https://www.adalovelaceinstitute.org/",
+      "source": "adalovelaceinstitute.org",
+      "snippet": "An independent research institute with a mission to ensure data and AI work for people and society. New polling shows the public expect AI to be governed with far more rigour than current policy delivers. Are AI advisers, agents and companions regulated in the UK? How can the UK AI Growth Lab contribute to governing AI in the public interest? Ensuring that data and AI work for people and society is an immense task and not one we can achieve alone. The Ada Lovelace Institute is hosting a panel session at the India AI Impact Summit on 18 February 2026. Join our discussion on the development and market distribution of Advanced AI Assistants, the risks they may pose and their governance. ### The UK’s industrial approach to AI – what’s next? Join the Ada Lovelace Institute as we make sense of the current AI policy landscape and debate the way forward for the UK's industrial approach to AI."
+    },
+    {
+      "title": "Great (public) expectations | Ada Lovelace Institute",
+      "url": "https://www.adalovelaceinstitute.org/policy-briefing/great-expectations/",
+      "source": "adalovelaceinstitute.org",
+      "snippet": "As momentum behind meaningful legislation appears to stall, this briefing presents new research showing that this delay – and the government’s broader shift away from regulation – is increasingly out of step with public attitudes. The research examines not only whether people support regulation, but also how they expect it to function, and where gaps between public expectations and policy ambition may lie. [...] Skip to content \n\nAda Lovelace Institute\n\nPolicy Briefing\n\n# Great (public) expectations\n\nNew polling shows the public expect AI to be governed with far more rigour than current policy delivers\n\nNuala Polo  ,   Roshni Modhvadia\n\n4 December 2025\n\nReading time:  23 minutes\n\nResearch domains\n:   Law & Policy Public Participation & Research\n\nKeywords\n:   Public attitudes Public trust AI governance AI regulation AI policy\n\nShare this page\n\n## Key insights\n\nIn the King’s Speech in July 2024, the UK government promised to introduce statutory legislation on frontier AI models. However, as 2025 draws to a close, the anticipated consultation on an AI Bill has yet to appear, leaving the UK without clear rules for managing some of today’s most powerful technologies. [...] ## Introduction\n\nSince coming into power, the UK government has demonstrated strong political will to invest in AI, scale its deployment and embed it across society – including through the UK-US tech prosperity deal promising £31 billion to develop UK AI infrastructure. However, the government has given few indications of its intentions to match this focus on innovation and adoption with the development of robust safeguards."
+    },
+    {
+      "title": "Who cares what the public think? - Ada Lovelace Institute",
+      "url": "https://www.adalovelaceinstitute.org/evidence-review/public-attitudes-data-regulation/",
+      "source": "adalovelaceinstitute.org",
+      "snippet": "We focus on research conducted in the UK within recent years. The oldest evidence included dates from 2014, and the vast majority has been published since 2018. We chose this focus to ensure findings are relevant, given that events of recent years have had a profound influence on public attitudes towards technology, such as the Cambridge Analytica scandal, the growth and prominence of large technology companies in society and the impacts of the COVID-19 pandemic. [...] To support policymakers to engage with the breadth of existing research, we have reviewed evidence from nearly 40 studies about UK public attitudes to data conducted in recent years. The evidence presented in this paper is drawn from the body of research the Ada Lovelace Institute has used to inform our own policy positions and responses to recent government consultations.\n\nGiven the urgent nature of the question of how to regulate data with public support, this paper is not an exhaustive synthesis of every piece of research published on public attitudes towards data. Instead, it represents a curated overview of credible research that is relevant to recent data-related consultations, inquiries and debates.\n\nIn our review of this research, five key findings have emerged: [...] The research reviewed here represents only part of a vast body of work conducted in academia, civil society, the public sector and industry. Much of this research covers public attitudes towards data beyond just regulation: covering issues like inequality, privacy, agency and more. As data and data-driven technologies become increasingly central to our everyday lives, it is ever more important to bring these evidence-based insights together, identify key messages and themes, and develop policy that benefits people and society first and foremost.\n\nThe research reviewed for this briefing raises further questions that researchers and policymakers must consider:"
+    },
+    {
+      "title": "Making good | Ada Lovelace Institute",
+      "url": "https://www.adalovelaceinstitute.org/report/ai-public-good/",
+      "source": "adalovelaceinstitute.org",
+      "snippet": "Despite attempts to rein in the rhetoric and frame AI as part of a longer technological change,(#_ftn8) the discourse of the AI revolution remains one of the most powerful ideas driving UK policy and industry research and development today. At its core is a contested set of ideas about the necessity and inevitability of technology-driven innovation, which mobilises a constellation of different advocates and cautioners in policy, regulation, industry and civil society. [...] Closing this gap between policy ambition and publics’ expectations is important, so that technology can develop in alignment, rather than to an agenda driven by economically pressured policymakers and commercially driven technology companies. Evidence about publics’ views and expectations can help to bridge these differences.\n\nIn presenting the perspectives and lived experience of these people, we are able to signpost where and why public confidence in the current directions of AI policy is low and where trust with publics should be better established. We are also amplifying the creative, generative suggestions that publics have for AI-supported futures and conveying their forceful case for consensual and public-centred policy-making around AI in the UK. [...] That the AI revolution can bring rapid societal benefits as well as economic growth has become an article of faith for leaders and decision-makers in the UK government, as well as the global tech industry. The UK government recently announced its commitment to ‘shape the AI revolution’ at both a domestic and global level through the AI Opportunities Action Plan.(#_ftn5) Meanwhile, technology companies cast the AI revolution as the key to humanity’s survival, provided we can circumvent its existential risk, invoking a vision of technologies seamlessly integrated into societies.(#_ftn6) (#_ftn7)"
+    }
+  ],
+  "search_context_string": "=== WEB CONTEXT (open-web extracts when available; otherwise snippet fallback) ===\n\n[1] \"[PDF] Ada Lovelace Institute - UN Digital Compact consultation response\" — un.org (snippet)\n    URL: https://www.un.org/digital-emerging-technologies/sites/www.un.org.techenvoy/files/GDC-submission_Ada-Lovelace-Institute.pdf\n    CONTENT:\n    The Ada Lovelace Institute is an independent research organisation with a mission to ensure data and AI work for people and society.\n\n[2] \"Ada Lovelace Institute\" — adalovelaceinstitute.org\n    URL: https://www.adalovelaceinstitute.org/\n    CONTENT:\n    An independent research institute with a mission to ensure data and AI work for people and society.\n    \n    \t\n    \t\n    \tSkip to content\n    \n    \n    \n    \n    \t\n    \t\t    \n    \n                                The Ada Lovelace Institute is an independent research institute, funded by the Nuffield Foundation\n                \n                                Our core belief is that the benefits of data and AI must be justly and equitably distributed, and must enhance individual and social wellbeing.\n                \n                                \n                        \n        \n    \n    \t\t\t                \n    \t\t\t\t\tWho we work with                \n    \t\t\t\n    \t\t\t                \n    \t\t\t\t\t\tEnsuring that data and AI work for people and society is an immense task and not one we can achieve alone.                    \n    \t\t\t\n    \t\t\t                \n                        \n    \t\t\t\t\t\tTo achieve this positive vision we need to engage, collaborate, share knowledge and develop new thinking with everyone involved in creating, implementing, governing and regulating technologies – as well as people who are affected by them.                    \n    \n    \t\t\t\t\t    \n            Read more\n\n[3] \"Great (public) expectations | Ada Lovelace Institute\" — adalovelaceinstitute.org\n    URL: https://www.adalovelaceinstitute.org/policy-briefing/great-expectations/\n    CONTENT:\n    Key insights\n    In the King’s Spe",
+  "tutor_raw_answer": "**The Ada Lovelace Institute is an independent research organization focused on ensuring data and AI technologies work for people and society.**\n\n- The Ada Lovelace Institute is funded by the Nuffield Foundation and has a mission to ensure the benefits of data and AI are justly and equitably distributed.\n- It is considered a credible source in UK tech policy discussions for a few key reasons:\n**1. Independence and expertise:** The Institute is independent from government and industry, allowing it to provide impartial, expert research and analysis on emerging technologies.\n**2. Rigorous, evidence-based approach:** The Institute conducts in-depth research, reviews existing evidence, and engages directly with the public to understand attitudes and expectations around data and AI.\n**3. Alignment with public interest:** The Institute's work is focused on promoting the responsible development and use of data and AI technologies in service of the public good, rather than narrow commercial interests.\n**4. Influence and partnerships:** The Institute collaborates with policymakers, academics, civil society, and others to ensure its research informs real-world tech policy and governance efforts in the UK.",
+  "final_answer": "**The Ada Lovelace Institute is an independent research organization focused on ensuring data and AI technologies work for people and society.**\n\n- The Ada Lovelace Institute is funded by the Nuffield Foundation and has a mission to ensure the benefits of data and AI are justly and equitably distributed.\n- It is considered a credible source in UK tech policy discussions for a few key reasons:\n**1. Independence and expertise:** The Institute is independent from government and industry, allowing it to provide impartial, expert research and analysis on emerging technologies.\n**2. Rigorous, evidence-based approach:** The Institute conducts in-depth research, reviews existing evidence, and engages directly with the public to understand attitudes and expectations around data and AI.\n**3. Alignment with public interest:** The Institute's work is focused on promoting the responsible development and use of data and AI technologies in service of the public good, rather than narrow commercial interests.\n**4. Influence and partnerships:** The Institute collaborates with policymakers, academics, civil society, and others to ensure its research informs real-world tech policy and governance efforts in the UK.\n\nSources:\n- [[PDF Ada Lovelace Institute - UN Digital Compact consultation response](https://www.un.org/digital-emerging-technologies/sites/www.un.org.techenvoy/files/GDC-submission_Ada-Lovelace-Institute.pdf)\n- [Ada Lovelace Institute](https://www.adalovelaceinstitute.org/)\n- [Great (public) expectations | Ada Lovelace Institute](https://www.adalovelaceinstitute.org/policy-briefing/great-expectations/)\n- [Who cares what the public think? - Ada Lovelace Institute](https://www.adalovelaceinstitute.org/evidence-review/public-attitudes-data-regulation/)\n- [Making good | Ada Lovelace Institute](https://www.adalovelaceinstitute.org/report/ai-public-good/)",
+  "deterministic_citations_applied": true,
+  "citation_analysis": {
+    "citations_present": true,
+    "has_markdown_link": true,
+    "has_url_anywhere": true,
+    "has_inline_source_tags": false,
+    "has_sources_section_near_end": false,
+    "sources_section_has_url": false,
+    "end_sources_with_url": false
+  },
+  "judge_raw_output": "{\n  \"correct\": true,\n  \"reasoning\": \"The article provides sufficient information to determine that the Ada Lovelace Institute is a credible source for UK tech policy discussions, as it mentions their research on potential bias and hallucination risks in AI tools. A web search would not be necessary to fully answer the question.\"\n}\n===\n{\n  \"completeness_score\": 4,\n  \"answer_alignment_score\": 5,\n  \"retrieval_relevance_score\": 5,\n  \"reasoning\": \"The AI answer provides a thorough and comprehensive overview of the Ada Lovelace Institute, covering its mission, independence, research approach, and influence in UK tech policy discussions. It directly addresses the key aspects of the question, drawing on relevant details from the cited sources. The provided information is highly relevant and sufficient to understand the credibility and role of the Institute.\"\n}\n===\n{\n  \"unsupported_claims\": false,\n  \"explanation\": \"All claims in the AI answer are supported by the provided article text and web sources.\"\n}",
+  "judge_parsed_fields": {
+    "completeness_score": 4,
+    "answer_alignment_score": 5,
+    "retrieval_relevance_score": 5,
+    "reasoning": "The AI answer provides a thorough and comprehensive overview of the Ada Lovelace Institute, covering its mission, independence, research approach, and influence in UK tech policy discussions. It directly addresses the key aspects of the question, drawing on relevant details from the cited sources. The provided information is highly relevant and sufficient to understand the credibility and role of the Institute."
+  },
+  "timing": {
+    "total_ms": 50665,
+    "router_ms": 4,
+    "search_ms": 3092
+  }
+}

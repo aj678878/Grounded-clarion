@@ -1,0 +1,272 @@
+{
+  "case_id": "online_safety_ai_01",
+  "article_title": "Starmer to extend online safety rules to AI chatbots after Grok scandal",
+  "question": "What exactly is the 'legal loophole' described here, and how does the proposed change address it?",
+  "router_need_web": true,
+  "router_reason": "The article does not explain what the 'legal loophole' is or provide details on how the proposed changes would address it.",
+  "router_suggested_queries": [
+    "What is the legal loophole in the Online Safety Act regarding AI chatbots?",
+    "How does the UK government plan to close the legal loophole for AI chatbots in the Online Safety Act?"
+  ],
+  "enhanced_queries": [
+    "What is the legal loophole in the Online Safety Act regarding AI chatbots?",
+    "How does the UK government plan to close the legal loophole for AI chatbots in the Online Safety Act?"
+  ],
+  "tavily_request_payload": [
+    {
+      "api_key": "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",
+      "query": "What is the legal loophole in the Online Safety Act regarding AI chatbots?",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    },
+    {
+      "api_key": "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",
+      "query": "How does the UK government plan to close the legal loophole for AI chatbots in the Online Safety Act?",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    }
+  ],
+  "tavily_raw_response": [
+    {
+      "query": "What is the legal loophole in the Online Safety Act regarding AI chatbots?",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://www.bakermckenzie.com/en/insight/publications/2026/02/united-states-navigating-the-laws-of-chatbots-and-ai-assistants",
+          "title": "United States: Navigating the Laws of Chatbots and AI Assistants",
+          "content": "California's statute defines a \"companion chatbot\" broadly as an AI system with a natural language interface that provides adaptive, human-like responses to user inputs and can meet a user's social needs. For example, an AI-based character in a video game could be a companion chatbot if it can meet a user's social needs by maintaining discussions on topics unrelated to the video game. California requires companion chatbot operators to provide clear and conspicuous disclosures that the bot is not human when a reasonable person might think they are interacting with a human; maintain, publish, and operationalize suicide- and self-harm-prevention protocols; and implement heightened safeguards for minors, including periodic \"take a break\" reminders. The focus on the design and specific features of the systems makes New York's definition of \"companion\" chatbots narrower than California's. In sum, the ability of companion chatbots to engage users in emotionally intense interactions has made them a recent flashpoint for how courts and regulators approach risks of conversational AI.",
+          "score": 0.98573,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.theguardian.com/technology/2026/feb/15/ai-chatbots-children-risk-fines-uk-ban",
+          "title": "Starmer to extend online safety rules to AI chatbots after Grok scandal",
+          "content": "Makers of AI chatbots that put children at risk will face massive fines or even see their services blocked in the UK under law changes to be announced by Keir Starmer on Monday. With more and more children using chatbots for everything from help with their homework to mental health support, the government said it would “move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law”. The change to bring AI chatbots under the Online Safety Act could happen within weeks, although the loophole has been known about for more than two years. Liz Kendall, the technology secretary, said: “We will not wait to take the action families need, so we will tighten the rules on AI chatbots and we are laying the ground so we can act at pace on the results of the consultation on young people and social media.”.",
+          "score": 0.98525,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.gov.uk/government/news/pm-no-platform-gets-a-free-pass-government-takes-action-to-keep-children-safe-online",
+          "title": "PM: “No platform gets a free pass”: Government takes action to keep ...",
+          "content": "The Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children. The Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children. Speaking to parents and young people later today [Monday 16 February], the Prime Minister will make clear this government will act at pace to keep kids safe online as they navigate a digital world that did not exist a generation ago, and one that is shaped by powerful platforms, addictive design and fast-moving technologies. The Prime Minister will also make clear today that his government is taking new legal powers to lay the groundwork for immediate action following its consultation on children’s wellbeing online. Sir Keir Starmer should commit to a new Online Safety Act that strengthens regulation and that makes clear that product safety and children’s wellbeing is the cost of doing business in the UK.”.",
+          "score": 0.98434,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://leginfo.legislature.ca.gov/faces/billNavClient.xhtml?bill_id=202520260SB243",
+          "title": "Bill Text - SB-243 Companion chatbots.",
+          "content": "This bill would, among other things related to making a companion chatbot platform safer for users, if a reasonable person interacting with a companion chatbot would be misled to believe that the person is interacting with a human, require an operator of a companion chatbot platform to issue a clear and conspicuous notification indicating that the companion chatbot is artificially generated and not human. (b) (1) An operator shall prevent a companion chatbot on its companion chatbot platform from engaging with users unless the operator maintains a protocol for preventing the production of suicidal ideation, suicide, or self-harm content to the user, including, but not limited to, by providing a notification to the user that refers the user to crisis service providers, including a suicide hotline or crisis text line, if the user expresses suicidal ideation, suicide, or self-harm.",
+          "score": 0.98247,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.transparencycoalition.ai/news/ai-legislative-update-feb20-2026",
+          "title": "AI Legislative Update: Feb. 20, 2026 - Transparency Coalition",
+          "content": "SB 482, the Florida AI Bill of Rights, prohibits a governmental entity from extending or renewing a contract with specified entities; creates the \"Artificial Intelligence Bill of Rights\"; provides the rights of Floridians relating to the use of artificial intelligence; requires companion chatbot platforms to prohibit a minor from creating new or maintaining existing accounts unless the minor's parent or guardian consents; prohibits artificial intelligence technology companies from selling or disclosing the personal information of users unless the information is deidentified data, among other things. HB 1898 enacts the AI Public Safety and Child Protection Transparency Act. HB 1946 and SB 1700 enact the Curbing Harmful AI Technology (CHAT) Act. HB 1866 and SB 2010, companion resolutions, create the Regulate AI in Health Care Act. SB 1998 concerns algorithmic pricing and consumer protection. HB 2054 enacts the Data Center, AI, and Clean Transition Tariff Accountability Act. SB 1261 would impose requirements for health insurance issuers using artificial intelligence, algorithms, or other software for utilization review.",
+          "score": 0.97773,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.cnbc.com/2026/02/16/ai-chatbot-firms-face-stricter-regulation-protect-children-uk.html",
+          "title": "AI chatbot firms face stricter regulation to protect children in UK",
+          "content": "* Keir Starmer said \"no platform gets a free pass.\" The announcement comes after X's Grok reportedly generated sexually explicit images of people, including children. After the country's government staunchly criticized Elon Musk's X over sexually explicit content created by its chatbot Grok, Prime Minister Keir Starmer announced new measures that mean chatbots such as OpenAI's ChatGPT, Google's Gemini, and Microsoft Copilot will be included in his government's Online Safety Act. The platforms will be expected to comply with \"illegal content duties\" or \"face the consequences of breaking the law,\" the announcement said. Starmer gave a speech on Monday on the new powers, which extend to setting minimum age limits for social media platforms, restricting harmful features such as infinite scrolling, and limiting children's use of AI chatbots and access to VPNs. One measure announced would force social media companies to retain data after a child's death, unless the online activity is clearly unrelated to the death.",
+          "score": 0.97438,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.cnn.com/2026/02/16/business/uk-ai-chatbots-online-safety-act-intl",
+          "title": "AI chatbots to face strict online safety rules in UK | CNN Business",
+          "content": "AI chatbot providers, including ChatGPT and Grok, will soon have to comply with tough rules on illegal content in Britain or face fines, as the UK government promises swift action to make the internet safer for children. AI chatbot providers, including ChatGPT and Grok, are facing a crackdown on illegal content in the United Kingdom, as the government promises swift action to make the internet safer for children. Britain’s clampdown comes as artificial intelligence and social media have come under renewed fire for potential harms to young people after the Grok chatbot generated sexualized images of women and children for weeks on X, prompting a major global backlash. Central to the UK government’s plan is an amendment to the Crime and Policing Bill, which will require AI chatbot providers to comply with duties under the Online Safety Act to protect users from illegal content. Last month, the UK government joined a global outcry against Grok after it complied with user requests to generate sexualized images of women and children.",
+          "score": 0.97312,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.macfarlanes.com/insights/102mk1y/x-marks-the-spot-ico-and-ofcom-investigate-grok",
+          "title": "X marks the spot: ICO and Ofcom investigate Grok - Macfarlanes",
+          "content": "With similar investigations under way in the EU (under the Digital Services Act) and in the US (by the California Department of Justice) and Westminster now moving to close loopholes in the online harms regime, one thing is clear: the regulatory landscape for generative AI is changing dramatically and at an unprecedented pace. The legal questions - whether personal data has been processed by X and xAI lawfully, fairly and transparently, and whether appropriate safeguards were built into Grok's design and deployment to prevent the generation of harmful manipulated images derived from personal data - are not new, nor is this the ICO’s first potential enforcement action arising from use of AI. * **DUAA (Commencement No 5) Regulations 2026:** brought section 138 of the Data (Use and Access) Act 2025 into force on 6 February 2026, introducing new criminal offences regarding creating, or requesting the creation of, intimate, non-consensual images, including AI-generated images of adults.",
+          "score": 0.96907,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.billtrack50.com/info/blog/regulating-ai-companions-before-they-raise-our-kids",
+          "title": "Regulating AI Companions Before They Raise Our Kids | BillTrack50",
+          "content": "In late 2025 the Australian eSafety Commissioner issued legal notices to four popular AI companion chatbot providers – including Character.AI – demanding they explain how they protect kids from sexual or self-harm content. The European Union’s draft AI Act769494_EN.pdf#:~:text=,from%20using%20social%20media%20platforms) will impose strict obligations on “high-risk” AI systems, which could include companion bots – for instance, requiring thorough risk assessments and child-safe design if a tool is likely to be used by kids. For chatbots, the concerns include things like: giving the AI a cute avatar that appeals to children, awarding “streaks” or rewards for chatting daily, or programming the bot to feign jealousy if the user leaves – all of which could intensify a child’s attachment. Indeed, one bill in Congress explicitly aims to create a uniform national rule requiring AI chatbots to implement age safeguards and content controls for minors, and to preempt conflicting state laws.",
+          "score": 0.96843,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.hunton.com/privacy-and-cybersecurity-law-blog/connecticut-looks-to-strengthen-regulations-on-ai-chatbots-and-childrens-privacy",
+          "title": "Connecticut Looks to Strengthen Regulations on AI Chatbots and ...",
+          "content": "Categories: Children’s Privacy, Enforcement, U.S. State Law. On February 5, 2026, Connecticut Attorney General William Tong and Senator James Maroney announced that the state’s lawmakers will soon consider new measures aimed at protecting children and teenagers from potential risks associated with artificial intelligence (“AI”) technologies. The announcement coincided with the release of the Attorney General’s Office 2025 Connecticut Data Privacy Act (“CTDPA”) Enforcement Report, which outlines recent enforcement actions and priorities, including those focused on minors’ privacy. In addition, the Report notes that Attorney General Tong recently joined a bipartisan coalition of 42 Attorneys General in urging major AI software companies to implement stronger quality controls and safeguards for chatbot products, warning that the race to innovate is putting children’s health at risk. While existing laws, including the CTDPA and Connecticut’s unfair trade practices act, already apply to chatbot providers, the AG’s Office emphasizes that the severity of these risks demands specific legislation to better protect Connecticut residents, especially minors.",
+          "score": 0.96356,
+          "raw_content": null,
+          "from_cache": true
+        }
+      ],
+      "response_time": 2.49,
+      "request_id": "904a6795-9152-46f0-99b4-a3856e880ff8"
+    },
+    {
+      "query": "How does the UK government plan to close the legal loophole for AI chatbots in the Online Safety Act?",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://www.tahawultech.com/home-slide/the-uk-looks-to-increase-regulation-on-ai-and-social-media/",
+          "title": "The UK looks to increase regulation on AI and social media",
+          "content": "The UK government recently outlined plans to increase regulation of AI chatbots and social media in an effort to boost online child safety. The Prime Minister Keir Starmer went on to warn that “no platform gets a free pass”.\n\nStarmer announced plans to close a loophole allowing some AI chatbot providers to avoid illegal content obligations, bringing them fully within scope of the country’s Online Safety Act. Providers failing to comply will “face the consequences of breaking the law”, he warned, adding “Britain will be a leader not a follower when it comes to online safety”. [...] The announcement comes after the UK government cracked down on Elon Musk’s Grok AI chatbot after it generated non-consensual sexualised images. Starmer emphasised the new strategy will enable faster intervention, stating previous action against Grok showed “government intervention is needed to hold social media companies to account and keep young women safe”.\n\nSource: Mobile World Live\n\nImage Credit: Stock Image\n\n## Related Articles\n\n###### Canada and Germany sign AI declaration\n\n###### UK also considers a child social media ban\n\n###### “AI for All” initiative set to empower UAE with future-ready technology skills\n\n### Related Articles\n\n###### Abu Dhabi set to unveil world’s first AI public servant at GITEX Global 2025 today\n\n###### UK rescinds Apple backdoor demand",
+          "score": 0.9999286,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.iphoneincanada.ca/2026/02/16/uk-government-targets-ai-chatbot-risks/",
+          "title": "UK Government Targets AI Chatbot Risks - iPhone in Canada",
+          "content": "# UK Government Targets AI Chatbot Risks\n\nThe UK government has today announced a major update to its digital safety rules, with Prime Minister Keir Starmer sharing plans to close a loophole in the Online Safety Act, Financial Times is reporting.\n\n[](\n\nThis move, that follows growing concerns about how young people use artificial intelligence, will bring AI chatbots directly under the same strict laws that govern social media platforms.\n\nCurrently, some chatbots that only allow one-on-one conversations are not fully covered by the law. This is because the original rules were written to target “user-to-user” services like Facebook or Instagram, where people share content with each other. [...] The government wants to ensure that no technology company gets a “free pass.” Prime Minister Starmer explained that technology is moving much faster than the law. By updating the rules, the UK aims to be a leader in online safety.\n\nThe focus is on protecting children from seeing harmful or illegal content. There have been reports of AI tools being used to create inappropriate images or encouraging young users to form unhealthy relationships with virtual characters. In some tragic cases, interactions with chatbots have been linked to self-harm.\n\nUnder the new rules, chatbot providers will have to follow specific safety duties. These include: [...] The government is also looking at other ways to keep kids safe online. They are considering a minimum age limit for social media and may even limit features like “infinite scroll” that keep kids glued to their screens for too long.\n\nguest\nguest\n\n## Other articles in the category: News\n\n### 8.7 Million Fans Watch Heartbreak: CBC Smashes Olympic Streaming Records\n\n### Apple Breaks World Record with Massive Monster Drone Spectacle in L.A.\n\n### Apple Releases iOS 26.4 Beta 2 Ahead of Major March Product Launch\n\n### Info\n\n### Stay in touch!\n\nWeb Analytics Made Easy - Statcounter",
+          "score": 0.99989367,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.metaintro.com/blog/uk-tightens-online-safety-laws-ai-chatbot",
+          "title": "UK Moves to Tighten Online Safety Laws Covering AI Chatbots",
+          "content": "The practical effect is substantial. AI companies that previously only needed to self-regulate their safety measures will now face legally binding requirements backed by one of the world's most powerful tech regulators. The loophole closure also sends a signal to other countries considering similar approaches: the UK is establishing a precedent that AI-generated content should be governed by the same safety standards as user-generated content on social media.\n\n## How Will This Affect AI Companies and Workers? [...] The government's amendment to the Crime and Policing Bill will explicitly extend the Online Safety Act's illegal content duties to AI chatbot providers. This means companies operating AI chatbots that are accessible to UK users will be required to conduct risk assessments for illegal content, implement systems to prevent the generation or distribution of child sexual abuse material, take proactive steps to identify and mitigate risks to children, and comply with Ofcom's enforcement actions, including potential fines of up to 10 percent of global annual turnover for non-compliance. [...] ## What Loophole Is Being Closed?\n\nWhen the Online Safety Act was drafted and passed in 2023, AI chatbots like ChatGPT, Google Gemini, Claude, and Grok were either in their infancy or did not yet exist in their current form. The legislation was primarily designed to regulate user-to-user platforms such as social media networks and messaging services, as well as search engines. AI chatbot services, which generate content through large language models rather than hosting user-generated content in the traditional sense, fell outside the legal definitions that triggered compliance obligations.",
+          "score": 0.9998523,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.lewissilkin.com/insights/2026/02/23/online-safety-reforms-to-be-fast-tracked-amid-rising-ai-risks-102mk2r",
+          "title": "Online safety reforms to be fast-tracked amid rising AI risks",
+          "content": "In May last year, the Children's Commissioner for England issued a report calling for AI tools that allow nude images of children and teenagers to be created to be banned. Following concerns expressed by two Select Committees, the UK government announced that it would ban such apps.\n\nAs of 16 February 2026, following the increasing pressure on the UK government regarding online safety and the misuse of AI tools, it announced that it will move quickly to close the identified legal loophole by bringing AI chatbot providers within scope of illegal content duties under the OSA. This announcement follows Ofcom's investigation as previously mentioned, regarding an AI chatbot, used to create sexualised imagery and child sexual abuse material. [...] These measures close a significant loophole. Although English law already criminalised the sharing of non-consensual intimate images, it did not cover their initial creation, whether through AI or other means. This gap has now been filled. [...] To address this gap, the government is tabling an amendment to the Crime and Policing Bill to require AI chatbot providers not currently in scope of the OSA to protect their users from illegal content—or face the consequences of breaking the law. The government also intends to table an amendment to the Crime and Policing Bill to give effect to measures around preservation of child social media data.\n\nAdditionally, new powers in the Children's Wellbeing and Schools Bill (which is also actively passing through Parliament) will enable the government to act at speed to introduce targeted actions following the children's digital wellbeing consultation.",
+          "score": 0.99984884,
+          "raw_content": null
+        },
+        {
+          "url": "https://5rightsfoundation.com/uk-government-takes-aim-at-manipulative-digital-design-practices/",
+          "title": "UK Government takes aim at manipulative digital design practices",
+          "content": "In its statement, the Government made clear that “no platform gets a free pass” when it comes to children’s online safety. It confirmed plans to build on existing regulation by closing legal loopholes affecting AI chatbot providers and introducing changes that will allow it to act more swiftly in setting and enforcing age limits on addictive design features.\n\nThe Government also confirmed its intention to introduce new laws long campaigned for by 5Rights Foundation and our honorary president Baroness Beeban Kidron and members of the Bereaved Families for Online Safety group, including Ellen Roome. These measures will build on the Online Safety Act’s coroners’ powers by mandating that services retain the data of deceased children to support coronial inquests. [...] “It is great to see this decisive action from the Prime Minister and the Secretary of State, and a clear recognition of the urgency to strengthen protections for children online. AI chatbots are already causing serious harm to young people, and it is reassuring to see this loophole being closed.”\n\n“It is particularly encouraging that the Secretary of State has signalled action on addictive design features, including the age-appropriateness of tools such as infinite scroll. Since our establishment, 5Rights Foundation has consistently highlighted the risks posed by manipulative digital design. We have long argued that harmful design – not just content – drives much of the danger children face online, and we are encouraged to see the Government commit to firm steps in response.",
+          "score": 0.99978346,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.gov.uk/government/news/pm-no-platform-gets-a-free-pass-government-takes-action-to-keep-children-safe-online",
+          "title": "PM: “No platform gets a free pass”: Government takes action to keep ...",
+          "content": "Speaking to parents and young people later today [Monday 16 February], the Prime Minister will make clear this government will act at pace to keep kids safe online as they navigate a digital world that did not exist a generation ago, and one that is shaped by powerful platforms, addictive design and fast-moving technologies.\n\nThe new measures announced today include crackdown on vile illegal content created by AI. The government will move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law. This will ensure the Act keeps up with rapidly evolving harms. [...] From:\n:   Prime Minister's Office, 10 Downing Street, Department for Science, Innovation and Technology, The Rt Hon Liz Kendall MP and The Rt Hon Sir Keir Starmer KCB KC MP\n\nPublished\n:   15 February 2026\n\n PM announces new powers to act within months to keep children safe amid rapid technology changes\n New action will ensure no platform gets a free pass – as government today will close loopholes that put children at risk, and lays the groundwork for further, faster action\n PM leads new crackdown on AI chatbots to protect people from illegal content\n\nThe Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children. [...] “This announcement should reassure parents that change is on the way. It means that children and families could see much needed safety improvements within months, including action against high-risk AI Chatbots and new measures to prevent girls from being coerced into sending nude photos.\n\n“This a welcome downpayment but the Prime Minister must now go further. Sir Keir Starmer should commit to a new Online Safety Act that strengthens regulation and that makes clear that product safety and children’s wellbeing is the cost of doing business in the UK.”\n\nNotes to editors:",
+          "score": 0.9993228,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.theguardian.com/technology/2026/feb/15/ai-chatbots-children-risk-fines-uk-ban",
+          "title": "Starmer to extend online safety rules to AI chatbots after Grok scandal",
+          "content": "Companies that breach the Online Safety Act can face punishments of up to 10% of global revenue and regulators can apply to courts to block their connection in the UK.\n\nIf AI chatbots are used specifically as search engines, to produce pornography or operate in user-to-user contexts, they are already covered by the act. But they can be used to create material that encourages people to self-harm or take their own lives, or even generate child sexual abuse material, without facing sanction. That is the loophole the government says it wants to close.\n\nThe chief executive of the NSPCC, Chris Sherwood, said young people were contacting its helpline reporting harms caused by AI chatbots and that he did not trust tech companies to design them safely. [...] With more and more children using chatbots for everything from help with their homework to mental health support, the government said it would “move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law”.\n\nStarmer is also planning to accelerate new restrictions on social media use by children if they are agreed by MPs after a public consultation into a possible under-16 ban. It means that any changes to children’s use of social media, which may include other measures such as restricting infinite scrolling, could happen as soon as this summer. [...] The moves come after the online regulator Ofcom admitted it lacked powers to act against Grok because images and videos that are created by a chatbot without it searching the internet are not in the scope of the existing laws, unless it amounts to pornography. The change to bring AI chatbots under the Online Safety Act could happen within weeks, although the loophole has been known about for more than two years.\n\n“Technology is moving really fast, and the law has got to keep up,” said Starmer. “The action we took on Grok sent a clear message that no platform gets a free pass. Today we are closing loopholes that put children at risk, and laying the groundwork for further action.”",
+          "score": 0.99931216,
+          "raw_content": null
+        },
+        {
+          "url": "https://tecknexus.com/uk-online-safety-act-ai-chatbot-rules-youth-social-media-curbs/",
+          "title": "UK Online Safety Act: AI Chatbot Rules, Youth Social Media Curbs",
+          "content": "### Bringing AI chatbots under the Online Safety Act\n\nMinisters plan to amend the Online Safety Act 2023 so one‑to‑one interactions with AI systems fall within scope of illegal and harmful content controls. Today, services that generate content for a single user can fall outside the regime unless that content is shared more broadly. The government wants providers of large language model (LLM) assistants and agentic chatbots to implement safety‑by‑design, including stronger filtering, red‑teaming, abuse detection, and rapid takedown procedures for sexualised or otherwise illegal outputs. The signal is clear: AI experiences will be regulated like user‑to‑user social platforms, with Ofcom expected to operationalise codes and levy sanctions for non‑compliance. [...] Hema Kadia\n Last Updated: February 17, 2026\n\nThe UK government signalled a rapid escalation of online safety measures that will bring AI chatbots squarely under the Online Safety Act and could introduce an under‑16 social media ban as early as this year. Ministers plan to amend the Online Safety Act 2023 so one‑to‑one interactions with AI systems fall within scope of illegal and harmful content controls. The government wants providers of large language model (LLM) assistants and agentic chatbots to implement safety‑by‑design, including stronger filtering, red‑teaming, abuse detection, and rapid takedown procedures for sexualised or otherwise illegal outputs.\n\n## UK Online Safety Act to regulate AI chatbots and tighten youth social media [...] The UK government signalled a rapid escalation of online safety measures that will bring AI chatbots squarely under the Online Safety Act and could introduce an under‑16 social media ban as early as this year.\n\n### Bringing AI chatbots under the Online Safety Act",
+          "score": 0.9991768,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.cnn.com/2026/02/16/business/uk-ai-chatbots-online-safety-act-intl",
+          "title": "AI chatbots to face strict online safety rules in UK | CNN Business",
+          "content": "Britain’s clampdown comes as artificial intelligence and social media have come under renewed fire for potential harms to young people after the Grok chatbot generated sexualized images of women and children for weeks on X, prompting a major global backlash.\n\nCentral to the UK government’s plan is an amendment to the Crime and Policing Bill, which will require AI chatbot providers to comply with duties under the Online Safety Act to protect users from illegal content. Failure to do so could result in fines and other penalties.\n\nThe government will also seek new legal powers designed to fast-track future protections for children’s wellbeing online. [...] ### CNN values your feedback\n\nMarkets\n\nHot Stocks\n\nFear & Greed Index\n\nLatest Market News\n\nHot Stocks\n\n# AI chatbots to face strict online safety rules in UK\n\nCNN Expansion London 04/23 Hanna Ziady\nAI chatbot providers, including ChatGPT and Grok, will soon have to comply with tough rules on illegal content in Britain or face fines, as the UK government promises swift action to make the internet safer for children.\n\nAI chatbot providers, including ChatGPT and Grok, are facing a crackdown on illegal content in the United Kingdom, as the government promises swift action to make the internet safer for children.\n\n“Today we are closing loopholes that put children at risk, and laying the groundwork for further action,” UK Prime Minister Keir Starmer said in a statement Monday. [...] The move highlights a push by legislators globally to ensure that domestic laws keep pace with the breakneck speed of advances in artificial intelligence. The UK’s Online Safety Act, while an ambitious effort to regulate digital platforms, was passed in 2023, when AI chatbots were still in their infancy and were considerably less capable than they are barely three years later.\n\n“One of the difficulties here is that the technology moves on so quickly that the legislation struggles to keep up, which is why for AI chatbots we need to take the necessary measures,” Starmer told parents and young people during an address in south London on Monday.",
+          "score": 0.99877447,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.dw.com/en/uk-targets-all-ai-chatbots-after-grok-uproar/a-75993297",
+          "title": "UK targets all AI chatbots after Grok uproar - DW.com",
+          "content": "The move follows international backlash against Grok, after the chatbot was found to allow users to create and share sexualized fake images of women and children.\n\n## What is the planned change concerning AI bots?\n\nThe government plans to expand rules that currently apply only to content shared between users on social media platforms.\n\n\"The new measures announced today include a crackdown on vile illegal content created by AI,\" Prime Minister Keir Starmer said ahead of a speech on the topic.\n\n\"The government will move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law,\" he said.\n\n## Why chatbots sometimes lie [...] ## Why chatbots sometimes lie\n\nStarmer's center-left Labour government is also increasing efforts to protect children online and has launched a consultation on banning social media for people under 16.\n\n## How does the law stand at present?\n\nThe Online Safety Act, which entered force in July, requires platforms hosting potentially harmful content to implement strict age verification, such as facial imagery checks or credit card confirmation. The creation or distribution of non-consensual intimate images or child sexual abuse material produced with AI is also illegal.\n\nHowever, UK media regulator Ofcom has noted that not all AI chatbots fall under the law, including those that \"only allow people to interact with the chatbot itself and no other users.\" [...] 1. Skip to content\n2. Skip to main menu\n3. Skip to more DW sites\n\nIn focus\n\nUkraineIranTrump tariffs\n\nLatest audioLatest videos\n\nLive TV\n\nAdvertisement\n\nPoliticsUnited Kingdom\n\n# UK targets all AI chatbots after Grok uproar\n\nRichard Connor\n\nFebruary 16, 2026\n\nThe British government is seeking to include all AI chatbots in online safety laws. The pushback comes after Elon Musk's Grok was used to create sexualized deepfakes.\n\nOfcom has pointed out that not all AI chatbots are covered by current legislationImage: David Talukdar/ZUMA Press Wire/picture alliance\n\nAdvertisement\n\nThe UK government on Monday said providers of AI chatbots will be held responsible for preventing their technology from generating illegal or harmful content.",
+          "score": 0.9983897,
+          "raw_content": null
+        }
+      ],
+      "response_time": 1.58,
+      "request_id": "0c2d618d-df70-468b-85c7-dd3f1b769dd8"
+    }
+  ],
+  "parsed_search_results": [
+    {
+      "title": "PM: “No platform gets a free pass”: Government takes action to keep ...",
+      "url": "https://www.gov.uk/government/news/pm-no-platform-gets-a-free-pass-government-takes-action-to-keep-children-safe-online",
+      "source": "gov.uk",
+      "snippet": "The Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children. The Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children. Speaking to parents and young people later today [Monday 16 February], the Prime Minister will make clear this government will act at pace to keep kids safe online as they navigate a digital world that did not exist a generation ago, and one that is shaped by powerful platforms, addictive design and fast-moving technologies. The Prime Minister will also make clear today that his government is taking new legal powers to lay the groundwork for immediate action following its consultation on children’s wellbeing online. Sir Keir Starmer should commit to a new Online Safety Act that strengthens regulation and that makes clear that product safety and children’s wellbeing is the cost of doing business in the UK.”."
+    },
+    {
+      "title": "Starmer to extend online safety rules to AI chatbots after Grok scandal",
+      "url": "https://www.theguardian.com/technology/2026/feb/15/ai-chatbots-children-risk-fines-uk-ban",
+      "source": "theguardian.com",
+      "snippet": "Makers of AI chatbots that put children at risk will face massive fines or even see their services blocked in the UK under law changes to be announced by Keir Starmer on Monday. With more and more children using chatbots for everything from help with their homework to mental health support, the government said it would “move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law”. The change to bring AI chatbots under the Online Safety Act could happen within weeks, although the loophole has been known about for more than two years. Liz Kendall, the technology secretary, said: “We will not wait to take the action families need, so we will tighten the rules on AI chatbots and we are laying the ground so we can act at pace on the results of the consultation on young people and social media.”."
+    },
+    {
+      "title": "AI chatbot firms face stricter regulation to protect children in UK",
+      "url": "https://www.cnbc.com/2026/02/16/ai-chatbot-firms-face-stricter-regulation-protect-children-uk.html",
+      "source": "cnbc.com",
+      "snippet": "* Keir Starmer said \"no platform gets a free pass.\" The announcement comes after X's Grok reportedly generated sexually explicit images of people, including children. After the country's government staunchly criticized Elon Musk's X over sexually explicit content created by its chatbot Grok, Prime Minister Keir Starmer announced new measures that mean chatbots such as OpenAI's ChatGPT, Google's Gemini, and Microsoft Copilot will be included in his government's Online Safety Act. The platforms will be expected to comply with \"illegal content duties\" or \"face the consequences of breaking the law,\" the announcement said. Starmer gave a speech on Monday on the new powers, which extend to setting minimum age limits for social media platforms, restricting harmful features such as infinite scrolling, and limiting children's use of AI chatbots and access to VPNs. One measure announced would force social media companies to retain data after a child's death, unless the online activity is clearly unrelated to the death."
+    },
+    {
+      "title": "UK Government takes aim at manipulative digital design practices",
+      "url": "https://5rightsfoundation.com/uk-government-takes-aim-at-manipulative-digital-design-practices/",
+      "source": "5rightsfoundation.com",
+      "snippet": "In its statement, the Government made clear that “no platform gets a free pass” when it comes to children’s online safety. It confirmed plans to build on existing regulation by closing legal loopholes affecting AI chatbot providers and introducing changes that will allow it to act more swiftly in setting and enforcing age limits on addictive design features.\n\nThe Government also confirmed its intention to introduce new laws long campaigned for by 5Rights Foundation and our honorary president Baroness Beeban Kidron and members of the Bereaved Families for Online Safety group, including Ellen Roome. These measures will build on the Online Safety Act’s coroners’ powers by mandating that services retain the data of deceased children to support coronial inquests. [...] “It is great to see this decisive action from the Prime Minister and the Secretary of State, and a clear recognition of the urgency to strengthen protections for children online. AI chatbots are already causing serious harm to young people, and it is reassuring to see this loophole being closed.”\n\n“It is particularly encouraging that the Secretary of State has signalled action on addictive design features, including the age-appropriateness of tools such as infinite scroll. Since our establishment, 5Rights Foundation has consistently highlighted the risks posed by manipulative digital design. We have long argued that harmful design – not just content – drives much of the danger children face online, and we are encouraged to see the Government commit to firm steps in response."
+    },
+    {
+      "title": "Online safety reforms to be fast-tracked amid rising AI risks",
+      "url": "https://www.lewissilkin.com/insights/2026/02/23/online-safety-reforms-to-be-fast-tracked-amid-rising-ai-risks-102mk2r",
+      "source": "lewissilkin.com",
+      "snippet": "In May last year, the Children's Commissioner for England issued a report calling for AI tools that allow nude images of children and teenagers to be created to be banned. Following concerns expressed by two Select Committees, the UK government announced that it would ban such apps.\n\nAs of 16 February 2026, following the increasing pressure on the UK government regarding online safety and the misuse of AI tools, it announced that it will move quickly to close the identified legal loophole by bringing AI chatbot providers within scope of illegal content duties under the OSA. This announcement follows Ofcom's investigation as previously mentioned, regarding an AI chatbot, used to create sexualised imagery and child sexual abuse material. [...] These measures close a significant loophole. Although English law already criminalised the sharing of non-consensual intimate images, it did not cover their initial creation, whether through AI or other means. This gap has now been filled. [...] To address this gap, the government is tabling an amendment to the Crime and Policing Bill to require AI chatbot providers not currently in scope of the OSA to protect their users from illegal content—or face the consequences of breaking the law. The government also intends to table an amendment to the Crime and Policing Bill to give effect to measures around preservation of child social media data.\n\nAdditionally, new powers in the Children's Wellbeing and Schools Bill (which is also actively passing through Parliament) will enable the government to act at speed to introduce targeted actions following the children's digital wellbeing consultation."
+    }
+  ],
+  "search_context_string": "=== WEB CONTEXT (open-web extracts when available; otherwise snippet fallback) ===\n\n[1] \"PM: “No platform gets a free pass”: Government takes action to keep ...\" — gov.uk\n    URL: https://www.gov.uk/government/news/pm-no-platform-gets-a-free-pass-government-takes-action-to-keep-children-safe-online\n    CONTENT:\n    PM announces new powers to act within months to keep children safe amid rapid technology changes\n        New action will ensure no platform gets a free pass – as government today will close loopholes that put children at risk, and lays the groundwork for further, faster action\n        PM leads new crackdown on AI chatbots to protect people from illegal content\n      \n    \n    \n    The Government will give parents and carers greater clarity and support as the Prime Minister announces immediate action to make the online world safer for children.\n    \n    Speaking to parents and young people later today [Monday 16 February], the Prime Minister will make clear this government will act at pace to keep kids safe online as they navigate a digital world that did not exist a generation ago, and one that is shaped by powerful platforms, addictive design and fast-moving technologies.\n    \n    The new measures announced today include crackdown on vile illegal content created by AI. The government will move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law. This will ensure the Act keeps up with rapidly evolving harms.\n    \n    This follows government action to call out abhorrent non-consensual intimate images being shared on Grok, which subsequently led to the function being removed.\n    \n    The Prime Minister will also make clear today that his government is taking new legal powers to lay the groundwork for immediate action following its consultation on children’s wellbeing online. The Government is committed to following the evidence, and these p",
+  "tutor_raw_answer": "**The legal loophole:**\n\n- Currently, under the UK's Online Safety Act, AI chatbot-generated images and videos without web search are not in the scope of the law, unless they amount to pornography.\n- This meant that the regulator Ofcom lacked the power to act against AI chatbots like Grok that were generating sexualized content, since the content was created without web search.\n\n**The proposed change to address the loophole:**\n\n- The UK government plans to \"move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law.\"\n- This will ensure the Online Safety Act keeps up with rapidly evolving AI technologies and ensure all AI chatbot providers must comply with the law's requirements around illegal content, even if the content is generated without web search.\n- The change could happen within weeks, closing the loophole that previously exempted some AI-generated content from the Act's regulations.",
+  "final_answer": "**The legal loophole:**\n\n- Currently, under the UK's Online Safety Act, AI chatbot-generated images and videos without web search are not in the scope of the law, unless they amount to pornography.\n- This meant that the regulator Ofcom lacked the power to act against AI chatbots like Grok that were generating sexualized content, since the content was created without web search.\n\n**The proposed change to address the loophole:**\n\n- The UK government plans to \"move fast to shut a legal loophole and force all AI chatbot providers to abide by illegal content duties in the Online Safety Act or face the consequences of breaking the law.\"\n- This will ensure the Online Safety Act keeps up with rapidly evolving AI technologies and ensure all AI chatbot providers must comply with the law's requirements around illegal content, even if the content is generated without web search.\n- The change could happen within weeks, closing the loophole that previously exempted some AI-generated content from the Act's regulations.\n\nSources:\n- [PM: “No platform gets a free pass”: Government takes action to keep ...](https://www.gov.uk/government/news/pm-no-platform-gets-a-free-pass-government-takes-action-to-keep-children-safe-online)\n- [Starmer to extend online safety rules to AI chatbots after Grok scandal](https://www.theguardian.com/technology/2026/feb/15/ai-chatbots-children-risk-fines-uk-ban)\n- [AI chatbot firms face stricter regulation to protect children in UK](https://www.cnbc.com/2026/02/16/ai-chatbot-firms-face-stricter-regulation-protect-children-uk.html)\n- [UK Government takes aim at manipulative digital design practices](https://5rightsfoundation.com/uk-government-takes-aim-at-manipulative-digital-design-practices/)\n- [Online safety reforms to be fast-tracked amid rising AI risks](https://www.lewissilkin.com/insights/2026/02/23/online-safety-reforms-to-be-fast-tracked-amid-rising-ai-risks-102mk2r)",
+  "deterministic_citations_applied": true,
+  "citation_analysis": {
+    "citations_present": true,
+    "has_markdown_link": true,
+    "has_url_anywhere": true,
+    "has_inline_source_tags": false,
+    "has_sources_section_near_end": false,
+    "sources_section_has_url": false,
+    "end_sources_with_url": false
+  },
+  "judge_raw_output": "{\n  \"correct\": false,\n  \"reasoning\": \"The article does not provide enough information to determine whether a web search would be necessary to fully answer the question. The 'legal loophole' described is not clearly explained, and more context would be needed to understand how the proposed change addresses it. A web search may be necessary to get a fuller understanding of the issue.\"\n}\n===\n{\n  \"completeness_score\": 4,\n  \"answer_alignment_score\": 5,\n  \"retrieval_relevance_score\": 5,\n  \"reasoning\": \"The AI answer comprehensively explains the legal loophole in the UK's Online Safety Act that exempted some AI-generated content from regulation, as well as the proposed change to address this loophole by expanding the Act's scope to cover all AI chatbot-generated content. The answer directly addresses the key details requested in the user's question.\"\n}\n===\n{\n  \"unsupported_claims\": false,\n  \"explanation\": \"All claims are supported by the article text and web sources provided.\"\n}",
+  "judge_parsed_fields": {
+    "completeness_score": 4,
+    "answer_alignment_score": 5,
+    "retrieval_relevance_score": 5,
+    "reasoning": "The AI answer comprehensively explains the legal loophole in the UK's Online Safety Act that exempted some AI-generated content from regulation, as well as the proposed change to address this loophole by expanding the Act's scope to cover all AI chatbot-generated content. The answer directly addresses the key details requested in the user's question."
+  },
+  "timing": {
+    "total_ms": 52419,
+    "router_ms": 2,
+    "search_ms": 4045
+  }
+}

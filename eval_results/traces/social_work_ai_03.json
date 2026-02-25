@@ -1,0 +1,270 @@
+{
+  "case_id": "social_work_ai_03",
+  "article_title": "Social workers' AI tool makes 'gibberish' transcripts of accounts from children",
+  "question": "If you were the PM of this transcription product, what eval suite would you implement to reduce harm? List concrete evals and how you'd measure pass/fail.",
+  "router_need_web": true,
+  "router_reason": "The article does not provide details on the transcription product, its specific features, or context on potential harms. More information is needed to suggest concrete evaluations.",
+  "router_suggested_queries": [
+    "what features does Beam (Magic Notes) transcription product have",
+    "potential harms of AI-generated medical transcriptions"
+  ],
+  "enhanced_queries": [
+    "what features does Beam (Magic Notes) transcription product have",
+    "potential harms of AI-generated medical transcriptions"
+  ],
+  "tavily_request_payload": [
+    {
+      "api_key": "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",
+      "query": "what features does Beam (Magic Notes) transcription product have",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    },
+    {
+      "api_key": "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",
+      "query": "potential harms of AI-generated medical transcriptions",
+      "max_results": 10,
+      "search_depth": "advanced",
+      "exclude_domains": [
+        "linkedin.com",
+        "quora.com",
+        "facebook.com",
+        "reddit.com",
+        "medium.com"
+      ]
+    }
+  ],
+  "tavily_raw_response": [
+    {
+      "query": "what features does Beam (Magic Notes) transcription product have",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://magicnotes.ai/en-GB/care/",
+          "title": "Magic Notes | AI-powered assessments for care teams",
+          "content": "> “Our pilot of Magic Notes has seen enormous benefits for our frontline team, who get time back to focus on the most meaningful work. Magic Notes captures every detail and turns your conversations into structured, compliant care plans and records in seconds. Magic Notes is designed for care teams, with:. What CMS and databases does Magic Notes work with? Magic Notes can be used across a wide range of meeting types, including care assessments, service reviews, quality assurance checks and more. You can even use Magic Notes for internal meetings! Magic Notes uses advanced transcription technology to capture key details. This \"human in the loop\" process ensures every Magic Note is carefully checked. Do you need an internet connection to use Magic Notes? No. Magic Notes works offline - simply log in whilst you have a connection and use the tool as normal. Magic Notes supports over 90 languages and has been tested extensively to make sure it works well with a range of accents.",
+          "score": 0.98596,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.beam.cloud/blog/whisperx",
+          "title": "Deploying WhisperX for Fast Speech Transcription - Beam Cloud",
+          "content": "In this guide, we'll walk through deploying WhisperX on a serverless GPU using Beam. Beam simplifies the deployment of machine learning models by handling the infrastructure and scaling for you. We start by specifying the runtime environment for WhisperX using Beam's Image class. ## Step 2: Loading the WhisperX Model. We use the `on_start` function to load the WhisperX models before serving any requests. We define the API endpoint that will handle audio file uploads, transcribe them using WhisperX, and return the transcribed text. + **Transcription**: Uses the WhisperX model to transcribe the audio. With the code in place, you can deploy the API to Beam's serverless infrastructure. `beam deploy app.py:transcribe_audio`. * **app.py:transcribe\\_audio**: Specifies the file and function to deploy. Beam will handle building the container image, setting up the environment, and exposing the API endpoint. After deployment, you can invoke the API by sending a POST request with a URL to your audio file. You've successfully deployed WhisperX as a serverless speech recognition API using Beam.",
+          "score": 0.98507,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/services/985901463553519",
+          "title": "Magic Notes",
+          "content": "Magic Notes includes a self-service option to export all written data to PDF or CSV and download audio recordings. This can be used at any time.",
+          "score": 0.983,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.gov.uk/algorithmic-transparency-records/newcastle-city-council-magic-notes",
+          "title": "Newcastle City Council: Magic Notes - GOV.UK",
+          "content": "(Magic Notes) is provided with controlled access to personal and special category data recorded by Newcastle City Council Adult Social Care staff using the Magic Notes web application. The system-level input for Magic Notes consists of audio recordings of conversations between Adult Social Care staff and people accessing or seeking to access adult social care services, captured via the Magic Notes web application on council-issued devices. Audio recordings of conversations between Adult Social Care staff and people using or seeking to access adult social care service, captured via the Magic Notes web application on council-issued devices. Magic Notes stores sensitive operational data, including audio recordings, transcripts, and summaries, which are only accessible to authorized council staff via secure authentication. The DPIA identified privacy and security risks related to the use of Magic Notes in Adult Social Care, with key mitigations including strict access controls, contractual restrictions on data use, and user training.",
+          "score": 0.98271,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://beam.ai/",
+          "title": "Beam AI: Leading Platform for Agentic Automation & AI Agents",
+          "content": "# Self-Learning AI Agents for Enterprise Operations. # Self-Learning AI Agents for Enterprise Operations. # Self-Learning AI Agents for Enterprise Operations. Meet the leading platform used by Fortune 500 companies and scale-ups to reduce operational cost, increase efficiency and become AI Native. Processing >10m AI agent tasks for Fortune 500 companies & scale-ups. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## Agent OS: The self-learning OS for AI-native companies. ## Agent OS: The self-learning OS for AI-native companies. ## Agent OS: The self-learning OS for AI-native companies. ## AI Agents: Workforce With Human-Level Performance. AI agents that learn from every interaction and improve autonomously. AI agents that learn from every interaction and improve autonomously.",
+          "score": 0.98055,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.adalovelaceinstitute.org/resource/what-is-an-ai-transcription-tool/",
+          "title": "What is an AI transcription tool? | Ada Lovelace Institute",
+          "content": "We use the term ‘AI transcription tools’ to refer to a new generation of transcription technologies that are powered by foundation models trained on extremely large datasets of recorded speech. The LLM component of an AI transcription tool will therefore require specific, iterative evaluation different to that undertaken by the foundation model developer, to account for capability changes or potential biases created by the fine-tuning. This explainer aims to provide policymakers and those working in the public sector with a practical understanding of AI transcription tools by describing their technical features, examining their use in frontline public services and synthesising the current approaches to evaluation. As a result, the UK public sector could benefit from additional evaluations of the use of AI transcription tools, through pilots or other interventions. Siloed evaluations over short time frames risk missing the systemic impacts of AI transcription tools that could negatively impact the experiences of people who draw on public services.",
+          "score": 0.97861,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://magicnotes.ai/en-GB/employability/",
+          "title": "Employability - Magic Notes",
+          "content": "Capture every detail with Magic Notes. Turn meetings into structured notes in seconds with AI. Skip hours of admin and save 8 hours every week - allowing you",
+          "score": 0.97503,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.theguardian.com/education/2026/feb/11/ai-tools-potentially-harmful-errors-social-work",
+          "title": "Social workers' AI tool makes 'gibberish' transcripts of accounts from ...",
+          "content": "AI tools are making potentially harmful errors in social work records, from bogus warnings of suicidal ideation to simple “gibberish”, frontline workers have said. The independent thinktank found that one social worker who had used an AI transcription tool to create a summary said the technology had incorrectly “indicated that there was suicidal ideation”, but “at no point did the client actually … talk about suicidal ideation or planning, or anything”. Most of the social workers interviewed used either the specialist Magic Notes AI or the general purpose Microsoft Copilot AI, with the report noting that application-specific tools like the former do include safety features and language capabilities suitable for use in social care. While there is “real excitement” among some social workers about their potential, “these tools also introduce new risks to social work and society, from potential bias in report summaries to inaccurate ‘hallucinations’ in transcripts,” said Imogen Parker, associate director at Ada Lovelace.",
+          "score": 0.97081,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://rcbc.moderngov.co.uk/documents/b3143/Introduction%20to%20Magic%20Notes%2012th-Sep-2025%2010.00%20Adults%20Wellbeing%20Health%20Scrutiny%20Improvement%20.pdf?T=9",
+          "title": "[PDF] Introduction to Magic Notes - Meetings, agendas, and minutes",
+          "content": "Time savings Reduce time spent on admin and write-ups 1 Staff sentiment Staff enjoy using the tool & it enhances their wellbeing 3 Quality Improved quality of conversations and quality of written work 2 Pilot Goals Page 9 Executive summary Magic Notes reduced time taken per assessment/write-up by 42% Staff reported faster submissions, catching up on backlog and the ability to spend more time with service users and conducting quality assurances. Completing more of the smaller tasks that I don't usually have time to follow up.” Practitioner Page 15 Quality Improved quality of conversations and quality of written work 2 Pilot results Staff reported that Magic Notes enabled them to be far more present and engaged in conversations KEY RESULTS Staff reported that Magic Notes enhanced the quality of details captured Managers also noted an improvement in the quality of work produced Page 16 Magic Notes enhanced the quality of details captured Average level of detail captured improved from 6 to 8.3 Practitioners stated that Magic Notes helps capture more detailed and extensive notes to what they are able to do manually, reducing the need to rely on memory and the fear of missing key information.",
+          "score": 0.96891,
+          "raw_content": null,
+          "from_cache": true
+        },
+        {
+          "url": "https://www.coram.org.uk/wp-content/uploads/2025/07/CII-Innovation-Collective_2025_v14_Part4.pdf",
+          "title": "[PDF] Magic Notes",
+          "content": "It frees up time for me to focus on complex cases care, planning and the social workers in the team that I supervise.” – Senior Social Worker at Kingston Council 4 From Insight to Impact 2025 Kingston Council’s integration of Magic Notes By Kingston Council and Beam Up Ltd. Magic Notes is a tool developed by Beam to simplify and streamline the process of documenting and summarising care visit information. Starting in 2024, Kingston Council has been rolling out Magic Notes as part of its effort to enhance efficiency in social care services. Beam, a company dedicated to creating social impact through technology, including artificial intelligence, collaborated closely with Kingston Council to adapt the product to the needs of social workers. Key features and adaptation: • Originally designed for Beam’s caseworkers, Magic notes was modified for use by social workers on mobile devices. See more: https://www.kingston.gov.uk/news/article/525/ kingston-council-launches-ai-tool-to-free-up-time-for-frontline-social-workers MAGIC NOTES-GENERATED CASE NOTES ACHIEVED OVER 96% ACCURACY 96%.",
+          "score": 0.96441,
+          "raw_content": null,
+          "from_cache": true
+        }
+      ],
+      "response_time": 4.87,
+      "request_id": "970e2e59-0aa7-44d9-93ef-08744965b3e9"
+    },
+    {
+      "query": "potential harms of AI-generated medical transcriptions",
+      "follow_up_questions": null,
+      "answer": null,
+      "images": [],
+      "results": [
+        {
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12460601/",
+          "title": "navigating the uncharted risks of AI scribes in clinical practice - PMC",
+          "content": "| Risk Category | Examples of Potential Harm | Recommended Safeguards |\n --- \n| Clinical Accuracy | AI Hallucinations (fabricated exams), Omissions of symptoms | Mandatory accuracy standards, Independent validation studies |\n| Patient Privacy | Unauthorized recording, Data repurposing for AI training | Explicit consent protocols, Audit trails for data access |\n| Legal Liability | Unclear responsibility for AI errors, Documentation discrepancies | Updated liability frameworks, Clear error attribution processes |\n| Transparency | “Black box” algorithms, Proprietary systems | Required explainability standards, Open audit of error rates | [...] them briefly with traditional human scribes and automated dictation tools. Human medical scribes manually document encounters in real-time and, in randomized trials, are more than four times as likely to produce notes physicians rate as ‘accurate’ compared with standard self-documentation4. Automated speech-recognition dictation systems generally have higher error rates—typically 7–11%—owing to the complexity of medical jargon and accent variability5. Modern ambient AI scribes leveraging large language models report lower overall error rates (≈1–3%) but introduce distinct failure modes such as AI hallucinations (AI-generated content that appears plausible but has no basis in reality), critical omissions, misattribution, and contextual misinterpretations, creating new safety challenges6,7. [...] These risks are not new. Earlier speech recognition systems have caused patient harm due to transcription errors—such as erroneously documenting “no vascular flow” instead of “normal vascular flow,” prompting an unnecessary procedure, or confusing the location of a tumor, resulting in surgery on the wrong site5. These historical failures parallel the AI hallucinations now seen in advanced AI scribes, suggesting that core risks persist despite technological advancement. Compounding the issue is the “black box” nature of these systems. The underlying neural network algorithms are not constrained by established medical knowledge, making it difficult to understand how they arrive at specific conclusions or predict when errors might occur7. This lack of transparency makes it challenging to",
+          "score": 0.99938333,
+          "raw_content": null
+        },
+        {
+          "url": "https://maulinlaw.com/article/the-risks-of-ai-transcribing-in-healthcare",
+          "title": "The risks of AI transcribing in healthcare - Maulin Law",
+          "content": "Clinician over-reliance or user error:Guidance warns against passive acceptance of AI-generated documentation. Over-trusting the output risks embedding serious errors into the patient record. Clinicians must also be wary of operating the product so that it generates output beyond its intended scope. \n\nInvisibility of errors:AI-generated text often reads fluently and convincingly, what experts call “authoritative but incorrect”. Sometimes AI invents text i.e “hallucinations”. Subtle clinical misstatements may go unnoticed and potentially lead to errors like misdiagnosis unless carefully reviewed. [...] # The risks of AI transcribing in healthcare\n\n Sector insights\n\nBy Neil Rowe\n\n## Neil Rowe, Head of Practice at Maulin Law, considers the potential pitfalls of relying on transcription tech.\n\nArtificial intelligence (AI) is rapidly transforming healthcare delivery, particularly in administrative and documentation tasks.\n\nOne area seeing accelerated adoption is AI-enabled ambient scribing – technology that captures and transcribes conversations between clinicians and patients, often in real-time.\n\nWhile the promise of these tools is substantial, the risks are equally critical, particularly regarding patient safety, data protection, regulatory compliance, and legal liability.\n\n#### AI transcription tools and how they’re used [...] #### AI transcription tools and how they’re used\n\nAI transcription tools such as Dragon Medical One (Nuance/Microsoft), Amazon Transcribe Medical, Suki Assistant, Tali AI, and Dictate.IT are now embedded in clinical workflows across GP practices, hospitals, and outpatient clinics. These systems often combine speech recognition, natural language processing (NLP), and generative AI to produce structured clinical notes or patient letters from spoken consultations.",
+          "score": 0.9988752,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.dittotranscripts.com/blog/ai-transcription-legal-risks-the-hidden-dangers-in-automation/",
+          "title": "AI Transcription Legal Risks: The Hidden Dangers in Automation",
+          "content": "The accuracy issues of AI transcription tools are really where the concern comes from, especially in healthcare. Researchers discovered that OpenAI’s Whisper frequently creates hallucinations, generating sentences that were never actually spoken in the recording. If that isn’t enough to make you change your mind, the error rates were also astonishing; one researcher found hallucinations in 80% of audio transcripts, while another found them in about 50% of over 100 hours analyzed. [...] I know I’ve said this before, but it bears repeating: the consequences of inaccurate transcription are heavy, far-reaching, and unpredictable. Some potential effects of incorrect transcripts include miscommunications, legal ramifications, loss of credibility, misinformation, operational errors, medical errors, negative financial consequences, damaged relationships, and time and resource waste.\n\nDitto offers 100% human transcription—no AI, no automated tools, no soulless machines like ChatGPT listening to your recordings and spitting out inaccurate transcripts by the boatload.\n\nWe’re a professional transcription company, so we won’t settle with giving our clients the bare minimum. Our services come with the following features: [...] And don’t get me wrong, these hallucinations aren’t simple word substitutes (i.e. their vs there). No, these hallucinations includes problematic content like medical treatments that never actually happned, statements that were never spoken during pauses in the audio, and, worse yet, violent rhetoric. So, it’s clear as day that The legal consequences of all these mistakes will undoubtedly lead to medical malpractice claims or regulatory compliance issues.",
+          "score": 0.9976586,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.coherentsolutions.com/insights/benefits-and-pitfalls-of-ai-medical-scribe-and-transcription-solutions",
+          "title": "Benefits and Pitfalls of AI Medical Scribe and Transcription Solutions",
+          "content": "Transcription is particularly time-consuming, frequently diverting medical specialists from their primary focus on patient care. Its repetitive nature can contribute to mental fatigue. Additionally, keeping up with evolving medical terminology and ensuring compliance with legal and insurance requirements further adds complexity. AI-driven scribe and transcription tools aim to alleviate this documentation burden, allowing providers to dedicate more time to patient care.\n\nWhile AI technology offers significant benefits, it is not without challenges. In this article, we explore the advantages and pitfalls of AI-powered transcription in healthcare and its role in transforming the industry.\n\n## What is AI Medical Transcription [...] Solution: Establishing clear policies on how AI is used in medical scribing and transcription, ensuring patient consent and transparency about data usage.\n\nTraining and Implementation\n\nHealthcare providers and staff may require training to effectively use AI software solutions for transcription, and integrating AI into existing workflows can be complex.\n\nSolution: Providing comprehensive training programs for healthcare professionals on how to effectively use AI-based transcription tools, conducting pilot programs in healthcare facilities.\n\nLegal and Liability Issues\n\nInaccuracies or errors in AI-generated transcriptions could have legal implications, particularly if they affect patient care decisions. [...] continuous software monitoring, and a collaborative partnership with the software vendor, driving strategic EHR transformation at Mayo Clinic.",
+          "score": 0.99701905,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.tmlt.org/resource/using-ai-medical-scribes-risk-management-considerations",
+          "title": "Using AI medical scribes: Risk management considerations",
+          "content": "miss critical clinical information discussed with the patient;\n incorrectly transcribe medical terminology;\n omit important non-verbal observations;\n “hallucinate” or create information about a patient simply to provide an answer in an EHR template or fill in an information gap; (5)\n misinterpret vague statements or questions; or\n omit contextual factors that influenced clinical decision-making.\n\nThere are also concerns about AI scribes relying on generalized, historical data the system may encounter that perpetuate racial, sexual, age-based, and other biases. When past biases are introduced into the AI system, there is a potential for discriminatory practices or less inclusive treatment. (8)  \n‍\n\n2. Reduced critical review [...] miss critical clinical information discussed with the patient;\n incorrectly transcribe medical terminology;\n omit important non-verbal observations;\n “hallucinate” or create information about a patient simply to provide an answer in an EHR template or fill in an information gap; (5)\n misinterpret vague statements or questions; or\n omit contextual factors that influenced clinical decision-making.\n\nThere are also concerns about AI scribes relying on generalized, historical data the system may encounter that perpetuate racial, sexual, age-based, and other biases. When past biases are introduced into the AI system, there is a potential for discriminatory practices or less inclusive treatment. (8)  \n‍\n\n2. Reduced critical review [...] 4. Privacy breaches and HIPAA concerns\n\nBecause AI medical scribe notes are based on audio recordings of patient-physician conversations, there is a built-in potential for breaches of patient privacy. These conversations may include mentions or confirmations of HIPAA-protected patient information, such as patient name, birthdate, address, contact information, family member names and contact information, pre-existing conditions, or other protected health information (PHI). In turn, this information becomes vulnerable in the event of a cyber security breach; inappropriate storage or transmission of PHI; or sharing PHI with third-party AI vendors.",
+          "score": 0.99657035,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.heidihealth.com/blog/using-ai-medical-scribes-safely",
+          "title": "Using AI Medical Scribes safely - Heidi",
+          "content": "These errors may take the form of:\n\n Overt errors in transcribing symptoms, medicines, conditions, and medical history\n Omissions of important information (including non-verbal or implied details)\n Unrelated information being added to documentation (as a result of “hallucinations” in large language models)\n\nYou can mitigate this risk by reviewing all AI-generated documentation for accuracy before it is shared or added to a patient’s health record.\n\nHow often do AI medical scribes make errors? [...] Ultimately, much of the software and technology available today can cause harm if it’s misused (recording devices, AI image generators, and online communication tools are examples). There are even countless examples of medical devices and products that are therapeutic when used correctly, yet harmful in certain circumstances. As long as you continue to take responsibility for your documentation and ensure the content of the notes and documents accurately reflects the patient interaction, you can use AI medical scribes safely.\n\n## Wait! How good are these draft notes and documents? I’m worried I’ll be spending more time editing than if I had just written the note or document myself. [...] Heidi has been designed to be used in every medical setting, specialty and scenario, resulting in only one in a thousand draft notes receiving a negative rating.\n\n## The six most common concerns and how we think about them\n\nBelow are questions about safety and risk that clinicians and administrators commonly ask about Heidi.\n\n1. Patient safety and clinical accuracy\n\n#### What patient safety issues should clinicians be aware of while using an AI medical scribe?\n\nThe main patient safety issue with AI medical scribes is documentation errors.\n\nThese errors may take the form of:",
+          "score": 0.9957353,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.cmpa-acpm.ca/en/advice-publications/browse-articles/2023/ai-scribes-answers-to-frequently-asked-questions",
+          "title": "AI Scribes: Answers to frequently asked questions - CMPA",
+          "content": "AI may “hallucinate,” misinterpret information, or introduce biases. As a result, you should review the medical notes transcribed by AI scribes to prevent incorrect information from becoming part of the patient’s medical record. Colleges also require physicians to review their records to ensure accuracy and completeness.\n\nA patient who is injured because of an error in an unreviewed chart entry may launch a hospital complaint, College complaint, human rights complaint, or a legal action depending on the nature of any harm they have suffered and the impact of the alleged inaccuracy. [...] While it is possible the AI scribe company could also bear some responsibility for injury resulting from an inaccurate transcription, the terms of use will often require physicians to review and take responsibility for any chart entry.\n\n## How should I review whether the service meets privacy and security requirements under privacy legislation?\n\nAI scribe technology can involve the collection and transfer of health information to the AI scribe vendor, so that it can be processed by the AI tool. Some AI scribe companies may also store this information on their servers (either inside or outside Canada).",
+          "score": 0.9954615,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.rand.org/pubs/commentary/2025/04/are-ai-generated-medical-notes-really-any-worse.html",
+          "title": "Are AI-Generated Medical Notes Really Any Worse? - RAND",
+          "content": "These AI systems all work similarly: they listen in on the conversation between a patient and physician, create a transcript, then organize the information from the transcript into the standard format doctors use, generating a note within minutes or even seconds of the clinical conversation. This is, for many medical professionals, promising, exciting, and nerve-wracking. AI is powerful, but it is also known for being biased, for making untrue statements with great confidence, and for its poor quality of training data; to say nothing of all the issues around models potentially not being up to date with the newest medical literature and guidelines.\n\nAnd yet, all these pitfalls—biases, incorrect interpretations, outdated guidelines—are human problems, too. [...] Compared with this status quo, AI scribes don't look so dangerous. Right now, there is already inaccurate information in medical records that is used to make clinical decisions, evaluate risk profiles, and develop new predictive algorithms. AI may reinforce biases, but those biases likely come from humans; if the human-authored texts on which the tools are based contain biased views of race or gender (which they often do), the resulting tools will as well.\n\nAs flawed as AI notes may be, it's entirely possible that human-generated medical notes could be more flawed. [...] As flawed as AI notes may be, it's entirely possible that human-generated medical notes could be more flawed. One study conducted at the VA found that when compared with secret recordings of medical encounters, 90 percent of doctor-written medical notes contained at least one error. Another study found that 96 percent of speech recognition–generated notes contained errors; 42 percent of final signed notes still had errors. An emergency room–based study found that physical exams are often “documented” even if they didn't occur; only slightly above 50 percent of documented physical exams, by body system, were verified by an observer. And many issues raised by patients during visits don't make it into the medical record.",
+          "score": 0.99242276,
+          "raw_content": null
+        },
+        {
+          "url": "https://doctorsmanitoba.ca/managing-your-practice/tech-for-doctors/ai-scribes/ai-scribes-in-your-practice-your-responsibilities",
+          "title": "AI Scribes in Your Practice: Your Responsibilities - Doctors Manitoba",
+          "content": "➡ The Canadian Medical Protective Association (CMPA) does not oppose the use of AI scribes but reminds physicians to ensure patient chart entries accurately reflect the patient encounter. Physicians should review and correct any AI-generated text for the patient’s chart in a timely way, just as you would if a resident or human scribe had helped prepare the notes. You can review the CPSM Standard of Patient Documentation here.\n\nDespite how far the tools have come, generative AI has limitations and risks, especially when applied to writing patient documentation. Aside from privacy concerns, AI risks can include: [...] In a survey of physicians, we found more than 90% of Manitoba’s physicians see some potential for artificial intelligence to help their medical practice in some way, including charting and documentation. It’s no surprise, then, that Doctors Manitoba has been receiving inquiries on a regular basis from physicians asking about using AI for charting and other purposes, especially considering the 10+ hours per week physicians spend on administrative tasks. As we work together to find ways to reduce the administrative burdens for physicians at a systemic level, we’re taking a look at some of the responsibilities that arrive with using AI.",
+          "score": 0.9921233,
+          "raw_content": null
+        },
+        {
+          "url": "https://www.blg.com/en/insights/2026/02/what-health-organizations-need-to-know-about-the-new-ai-scribe-guidelines",
+          "title": "AI medical scribes: Canadian privacy compliance - BLG",
+          "content": "## What is an AI scribe?\n\nAI scribes are tools that use generative AI to capture clinical conversations, usually through real‑time audio, and turn them into structured notes and summaries. They can ease documentation pressures and help clinicians stay focused on patient interactions during care delivery. Because these tools record entire conversations involving patients, clinicians, and others, they typically process sensitive personal health information. Some AI scribes now go beyond simple transcription to provide features that support medical decision-making and clinical workflows. The deployment of scribes can raise documentation and other clinical risks and engages compliance obligations under provincial health-privacy laws. [...] Custodians and trustees should carefully consider the secondary use issue. De-identification is a common means of enabling secondary use of personal health information, but there are strict requirements as to who de-identifies and how, and the very nature of the data produced by AI scribes renders lawful secondary use of very limited possibility.\n\n## Recordings and transcripts should be retained only in exceptional cases\n\nRegulators are aligned in treating audio recordings and full transcripts as high-risk due to voice biometrics, incidental capture, and heightened breach exposure. As a result, the guidance converges on a principle of minimal retention. [...] ## Accuracy risks require human oversight\n\nAcross Ontario, British Columbia, and Alberta, regulators highlight similar accuracy risks, and all reject autonomous use of AI scribes. AI-generated notes must always be reviewed by a clinician, who remains legally responsible for the accuracy and completeness of the health record.",
+          "score": 0.9884919,
+          "raw_content": null
+        }
+      ],
+      "response_time": 1.6,
+      "request_id": "41a8fe32-8030-4641-8ceb-cde09d68031a"
+    }
+  ],
+  "parsed_search_results": [
+    {
+      "title": "Magic Notes",
+      "url": "https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/services/985901463553519",
+      "source": "applytosupply.digitalmarketplace.service.gov.uk",
+      "snippet": "Magic Notes includes a self-service option to export all written data to PDF or CSV and download audio recordings. This can be used at any time."
+    },
+    {
+      "title": "Newcastle City Council: Magic Notes - GOV.UK",
+      "url": "https://www.gov.uk/algorithmic-transparency-records/newcastle-city-council-magic-notes",
+      "source": "gov.uk",
+      "snippet": "(Magic Notes) is provided with controlled access to personal and special category data recorded by Newcastle City Council Adult Social Care staff using the Magic Notes web application. The system-level input for Magic Notes consists of audio recordings of conversations between Adult Social Care staff and people accessing or seeking to access adult social care services, captured via the Magic Notes web application on council-issued devices. Audio recordings of conversations between Adult Social Care staff and people using or seeking to access adult social care service, captured via the Magic Notes web application on council-issued devices. Magic Notes stores sensitive operational data, including audio recordings, transcripts, and summaries, which are only accessible to authorized council staff via secure authentication. The DPIA identified privacy and security risks related to the use of Magic Notes in Adult Social Care, with key mitigations including strict access controls, contractual restrictions on data use, and user training."
+    },
+    {
+      "title": "Social workers' AI tool makes 'gibberish' transcripts of accounts from ...",
+      "url": "https://www.theguardian.com/education/2026/feb/11/ai-tools-potentially-harmful-errors-social-work",
+      "source": "theguardian.com",
+      "snippet": "AI tools are making potentially harmful errors in social work records, from bogus warnings of suicidal ideation to simple “gibberish”, frontline workers have said. The independent thinktank found that one social worker who had used an AI transcription tool to create a summary said the technology had incorrectly “indicated that there was suicidal ideation”, but “at no point did the client actually … talk about suicidal ideation or planning, or anything”. Most of the social workers interviewed used either the specialist Magic Notes AI or the general purpose Microsoft Copilot AI, with the report noting that application-specific tools like the former do include safety features and language capabilities suitable for use in social care. While there is “real excitement” among some social workers about their potential, “these tools also introduce new risks to social work and society, from potential bias in report summaries to inaccurate ‘hallucinations’ in transcripts,” said Imogen Parker, associate director at Ada Lovelace."
+    },
+    {
+      "title": "Beam AI: Leading Platform for Agentic Automation & AI Agents",
+      "url": "https://beam.ai/",
+      "source": "beam.ai",
+      "snippet": "# Self-Learning AI Agents for Enterprise Operations. # Self-Learning AI Agents for Enterprise Operations. # Self-Learning AI Agents for Enterprise Operations. Meet the leading platform used by Fortune 500 companies and scale-ups to reduce operational cost, increase efficiency and become AI Native. Processing >10m AI agent tasks for Fortune 500 companies & scale-ups. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## AI suites for finance, HR & customer service. Self-learning AI agents designed for enterprise scale and security. ## Agent OS: The self-learning OS for AI-native companies. ## Agent OS: The self-learning OS for AI-native companies. ## Agent OS: The self-learning OS for AI-native companies. ## AI Agents: Workforce With Human-Level Performance. AI agents that learn from every interaction and improve autonomously. AI agents that learn from every interaction and improve autonomously."
+    },
+    {
+      "title": "AI Scribes: Answers to frequently asked questions - CMPA",
+      "url": "https://www.cmpa-acpm.ca/en/advice-publications/browse-articles/2023/ai-scribes-answers-to-frequently-asked-questions",
+      "source": "cmpa-acpm.ca",
+      "snippet": "AI may “hallucinate,” misinterpret information, or introduce biases. As a result, you should review the medical notes transcribed by AI scribes to prevent incorrect information from becoming part of the patient’s medical record. Colleges also require physicians to review their records to ensure accuracy and completeness.\n\nA patient who is injured because of an error in an unreviewed chart entry may launch a hospital complaint, College complaint, human rights complaint, or a legal action depending on the nature of any harm they have suffered and the impact of the alleged inaccuracy. [...] While it is possible the AI scribe company could also bear some responsibility for injury resulting from an inaccurate transcription, the terms of use will often require physicians to review and take responsibility for any chart entry.\n\n## How should I review whether the service meets privacy and security requirements under privacy legislation?\n\nAI scribe technology can involve the collection and transfer of health information to the AI scribe vendor, so that it can be processed by the AI tool. Some AI scribe companies may also store this information on their servers (either inside or outside Canada)."
+    }
+  ],
+  "search_context_string": "=== WEB CONTEXT (open-web extracts when available; otherwise snippet fallback) ===\n\n[1] \"Magic Notes\" — applytosupply.digitalmarketplace.service.gov.uk\n    URL: https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/services/985901463553519\n    CONTENT:\n    BEAM UP LTD\n      \n    \n        Magic Notes is a specialist tool for caseworkers to record sessions and instantly create detailed assessments. It is created and operated by Beam, a leader in tech-enabled welfare services for local government. \n    \n    Features\n    \n    \n      Specialist tool for caseworkers to automate case notes and assessments\n    \n      Records conversations\n    \n      Auto-detects different speakers\n    \n      AI generated summaries in a customised structure including action points\n    \n      Customisable templates for different assessment formats\n    \n      Easily edit names\n    \n      Translation feature for sessions not held in English\n    \n      Copy and paste summaries into any case management system\n    \n      Web-based and compatible with all devices\n    \n      Data stored and processed in United Kingdom\n    \n    \n    \n    \n    Benefits\n    \n        \n        Built specifically by caseworkers for caseworkers\n        \n        Avoids generic structures in favour of high quality clinical reports\n        \n        Save a day a week of time per person\n        \n        Get CQC ready: quality-assured templates ensure compliance with different requirements\n        \n        Allows caseworkers to focus on in-person conversation\n        \n        Summaries capture all action points and metrics for reporting\n        \n        Quicker turnaround for casenotes\n        \n        Compatible with online and in-person conversation\n        \n    \n    \n      \n    \n        \n      \n        \n        \n      \n    \n      \n        \n        \n      \n    \n      \n        \n        \n      \n    \n      \n        \n        \n      \n    \n      \n        \n        \n      \n    \n      \n        \n        \n      \n    \n      ",
+  "tutor_raw_answer": "As the PM of this transcription product, I would implement the following evaluation suite to reduce potential harm:\n\n**Accuracy Evaluation:**\n- Measure the error rate of the transcription and summary outputs compared to ground truth transcripts.\n  - Acceptable error rate: Less than 5% word error rate and 10% factual error rate.\n  - Measurement: Sample conversations, manually transcribe and compare to AI output.\n- Evaluate accuracy for diverse speaker demographics (accents, ages, disabilities, etc.).\n  - Acceptable error rate: Less than 10% differential in error rate across demographic groups.\n  - Measurement: Conduct targeted testing with diverse user groups.\n\n**Bias Evaluation:**\n- Assess the system for demographic biases in the transcription and summarization.\n  - Acceptable bias: Less than 10% differential in accuracy or tone for protected characteristics like race, gender, age, etc.\n  - Measurement: Analyze outputs for language that reflects stereotypes or unfair treatment.\n\n**Safety Evaluation:**\n- Test for the system incorrectly identifying safety-critical information (e.g. suicidal ideation).\n  - Acceptable error rate: 0% for false positives on safety-critical content.\n  - Measurement: Construct test cases with scripted safety-critical language and verify outputs.\n\n**Usability Evaluation:**\n- Conduct user testing to assess the system's understandability and ease-of-use for social workers.\n  - Acceptable usability: Average user satisfaction score of 4/5 or higher.\n  - Measurement: Structured user interviews and task-based testing.\n\n**Compliance Evaluation:**\n- Verify that the system and its data practices adhere to relevant privacy and data protection regulations.\n  - Acceptable compliance: 0 identified regulatory violations.\n  - Measurement: Legal/regulatory audit and documentation review.\n\nThe key is to have a comprehensive, data-driven evaluation process that proactively identifies and mitigates potential sources of harm before deployment. Ongoing monitoring and iterative improvement would also be critical to maintaining high standards over time.",
+  "final_answer": "As the PM of this transcription product, I would implement the following evaluation suite to reduce potential harm:\n\n**Accuracy Evaluation:**\n- Measure the error rate of the transcription and summary outputs compared to ground truth transcripts.\n  - Acceptable error rate: Less than 5% word error rate and 10% factual error rate.\n  - Measurement: Sample conversations, manually transcribe and compare to AI output.\n- Evaluate accuracy for diverse speaker demographics (accents, ages, disabilities, etc.).\n  - Acceptable error rate: Less than 10% differential in error rate across demographic groups.\n  - Measurement: Conduct targeted testing with diverse user groups.\n\n**Bias Evaluation:**\n- Assess the system for demographic biases in the transcription and summarization.\n  - Acceptable bias: Less than 10% differential in accuracy or tone for protected characteristics like race, gender, age, etc.\n  - Measurement: Analyze outputs for language that reflects stereotypes or unfair treatment.\n\n**Safety Evaluation:**\n- Test for the system incorrectly identifying safety-critical information (e.g. suicidal ideation).\n  - Acceptable error rate: 0% for false positives on safety-critical content.\n  - Measurement: Construct test cases with scripted safety-critical language and verify outputs.\n\n**Usability Evaluation:**\n- Conduct user testing to assess the system's understandability and ease-of-use for social workers.\n  - Acceptable usability: Average user satisfaction score of 4/5 or higher.\n  - Measurement: Structured user interviews and task-based testing.\n\n**Compliance Evaluation:**\n- Verify that the system and its data practices adhere to relevant privacy and data protection regulations.\n  - Acceptable compliance: 0 identified regulatory violations.\n  - Measurement: Legal/regulatory audit and documentation review.\n\nThe key is to have a comprehensive, data-driven evaluation process that proactively identifies and mitigates potential sources of harm before deployment. Ongoing monitoring and iterative improvement would also be critical to maintaining high standards over time.\n\nSources:\n- [Magic Notes](https://www.applytosupply.digitalmarketplace.service.gov.uk/g-cloud/services/985901463553519)\n- [Newcastle City Council: Magic Notes - GOV.UK](https://www.gov.uk/algorithmic-transparency-records/newcastle-city-council-magic-notes)\n- [Social workers' AI tool makes 'gibberish' transcripts of accounts from ...](https://www.theguardian.com/education/2026/feb/11/ai-tools-potentially-harmful-errors-social-work)\n- [Beam AI: Leading Platform for Agentic Automation & AI Agents](https://beam.ai/)\n- [AI Scribes: Answers to frequently asked questions - CMPA](https://www.cmpa-acpm.ca/en/advice-publications/browse-articles/2023/ai-scribes-answers-to-frequently-asked-questions)",
+  "deterministic_citations_applied": true,
+  "citation_analysis": {
+    "citations_present": true,
+    "has_markdown_link": true,
+    "has_url_anywhere": true,
+    "has_inline_source_tags": false,
+    "has_sources_section_near_end": true,
+    "sources_section_has_url": true,
+    "end_sources_with_url": true
+  },
+  "judge_raw_output": "{\n  \"correct\": true,\n  \"reasoning\": \"The article provides information about concerns with transcription software, but does not contain enough details about the specific product or use case to fully evaluate the need for web search. A web search may be necessary to gather more context on the product features and requirements to determine if a web interface is needed.\"\n}\n===\n{\n  \"completeness_score\": 4,\n  \"answer_alignment_score\": 4,\n  \"retrieval_relevance_score\": 5,\n  \"reasoning\": \"The AI answer provides a comprehensive set of evaluation metrics and criteria to assess the transcription product's accuracy, bias, safety, usability, and compliance. It covers key areas that would be important to evaluate in order to reduce potential harm. The answer directly addresses the question asked and provides concrete, measurable evaluation approaches.\"\n}\n===\n{\n  \"unsupported_claims\": false,\n  \"explanation\": \"All claims are supported\"\n}",
+  "judge_parsed_fields": {
+    "completeness_score": 4,
+    "answer_alignment_score": 4,
+    "retrieval_relevance_score": 5,
+    "reasoning": "The AI answer provides a comprehensive set of evaluation metrics and criteria to assess the transcription product's accuracy, bias, safety, usability, and compliance. It covers key areas that would be important to evaluate in order to reduce potential harm. The answer directly addresses the question asked and provides concrete, measurable evaluation approaches."
+  },
+  "timing": {
+    "total_ms": 50924,
+    "router_ms": 2,
+    "search_ms": 6885
+  }
+}

@@ -59,6 +59,8 @@ const DATASET_PATH = path.resolve(
 const RESULTS_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_results.json');
 const PARTIAL_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_results.partial.json');
 const SUMMARY_PATH = path.resolve(process.cwd(), 'scripts/eval/eval_summary.md');
+const EVAL_RESULTS_DIR = path.resolve(process.cwd(), 'eval_results');
+const EVAL_TRACES_DIR = path.join(EVAL_RESULTS_DIR, 'traces');
 const CACHE_DIR = path.resolve(process.cwd(), 'scripts/eval/.cache');
 const OUTPUTS_DIR = path.resolve(process.cwd(), 'outputs');
 
@@ -347,31 +349,28 @@ interface RouterResult {
 
 interface EvalCaseTrace {
   case_id: string;
-  article_id: string;
+  article_title: string;
   question: string;
-  router: {
-    raw: string;
-    parsed: {
-      need_web: boolean;
-      reason: string;
-      suggested_queries: string[];
-      must_cite: boolean;
-    };
-  };
-  search: {
-    called: boolean;
-    queries: string[];
-    results: Array<{
-      title: string;
-      url: string;
-      snippet: string;
-      content: string;
-      score: number | null;
-    }>;
-  };
-  sources_used: string[];
-  answer: { text: string };
-  judge: {
+  router_raw_output: string;
+  router_need_web: boolean | null;
+  router_reason: string;
+  router_suggested_queries: string[];
+  enhanced_queries: string[];
+  tavily_request_payload: unknown;
+  tavily_raw_response: unknown;
+  parsed_search_results: Array<{
+    title: string;
+    url: string;
+    source: string;
+    snippet: string;
+  }>;
+  search_context_string: string;
+  tutor_raw_answer: string;
+  final_answer: string;
+  deterministic_citations_applied: boolean;
+  citation_analysis: CitationAnalysis & { citations_present: boolean };
+  judge_raw_output: string;
+  judge_parsed_fields: {
     completeness_score: number | null;
     answer_alignment_score: number | null;
     retrieval_relevance_score: number | null;
@@ -449,6 +448,8 @@ async function runSearch(
     content: string;
     score: number | null;
   }>;
+  tavilyRequestPayload: unknown;
+  tavilyRawResponse: unknown;
   latencyMs: number | null;
 }> {
   if (!TAVILY_API_KEY) {
@@ -457,6 +458,8 @@ async function runSearch(
       error: 'TAVILY_API_KEY not set',
       queriesUsed: [],
       rawResults: [],
+      tavilyRequestPayload: [],
+      tavilyRawResponse: [],
       latencyMs: null,
     };
   }
@@ -477,6 +480,8 @@ async function runSearch(
           content: string;
           score: number | null;
         }>;
+        tavilyRequestPayload?: unknown;
+        tavilyRawResponse?: unknown;
         latencyMs?: number | null;
       };
       return {
@@ -484,6 +489,8 @@ async function runSearch(
         error: parsed.error ?? null,
         queriesUsed: parsed.queriesUsed ?? toRun,
         rawResults: parsed.rawResults ?? [],
+        tavilyRequestPayload: parsed.tavilyRequestPayload ?? [],
+        tavilyRawResponse: parsed.tavilyRawResponse ?? [],
         latencyMs: parsed.latencyMs ?? null,
       };
     } catch {}
@@ -531,6 +538,8 @@ async function runSearch(
           error: 'Search timed out',
           queriesUsed: toRun,
           rawResults,
+          tavilyRequestPayload: debug?.tavily_request_payloads ?? [],
+          tavilyRawResponse: debug?.tavily_raw ?? [],
         };
       }
       return {
@@ -538,6 +547,8 @@ async function runSearch(
         error: null as string | null,
         queriesUsed: toRun,
         rawResults,
+        tavilyRequestPayload: debug?.tavily_request_payloads ?? [],
+        tavilyRawResponse: debug?.tavily_raw ?? [],
       };
     },
     { label: 'tavily-search', ...RETRY_OPTS }
@@ -875,6 +886,7 @@ async function main() {
   const remaining = cases.filter((c) => !completedIds.has(c.case_id));
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   fs.mkdirSync(OUTPUTS_DIR, { recursive: true });
+  fs.mkdirSync(EVAL_TRACES_DIR, { recursive: true });
   const TRACE_PATH = path.join(OUTPUTS_DIR, `traces_${runId}.jsonl`);
 
   console.log(`=== Running eval on ${cases.length} total cases (${remaining.length} remaining) ===`);
@@ -921,9 +933,14 @@ async function main() {
       score: number | null;
     }> = [];
     let searchQueriesUsed: string[] = [];
+    let tavilyRequestPayload: unknown = [];
+    let tavilyRawResponse: unknown = [];
     let searchLatencyMs: number | null = null;
     let searchError: string | null = null;
     let answerText = '';
+    let tutorRawAnswer = '';
+    let deterministicCitationsApplied = false;
+    let searchContext = '';
     let pipelineError: string | null = null;
 
     try {
@@ -939,7 +956,6 @@ async function main() {
       console.log(`  router: need_web=${routing.need_web}, queries=${routing.suggested_queries.length}`);
 
       // Step 2: Search (if needed) — no LLM rate limit, just inter-step throttle
-      let searchContext = '';
       if (routing.need_web && routing.suggested_queries.length > 0) {
         searchCalled = true;
         const exactQueries = [...routing.suggested_queries];
@@ -948,6 +964,8 @@ async function main() {
         searchResultsList = searchResult.results;
         searchRawResults = searchResult.rawResults;
         searchQueriesUsed = searchResult.queriesUsed;
+        tavilyRequestPayload = searchResult.tavilyRequestPayload;
+        tavilyRawResponse = searchResult.tavilyRawResponse;
         searchLatencyMs = searchResult.latencyMs;
         searchError = searchResult.error;
         sourcesUsed = searchResult.results.map((r) => r.source);
@@ -959,8 +977,10 @@ async function main() {
       }
 
       // Step 3: Answer
-      answerText = await generateAnswer(articleText, c.question, searchContext);
+      tutorRawAnswer = await generateAnswer(articleText, c.question, searchContext);
+      answerText = tutorRawAnswer;
       if (searchCalled && searchResultsList.length > 0) {
+        deterministicCitationsApplied = true;
         answerText = enforceDeterministicSourcesSection(
           answerText,
           searchResultsList.map((r) => ({ title: r.title, url: r.url }))
@@ -1105,25 +1125,31 @@ async function main() {
 
     const caseTrace: EvalCaseTrace = {
       case_id: c.case_id,
-      article_id: c.article_id,
+      article_title: c.article_title,
       question: c.question,
-      router: {
-        raw: routerRaw,
-        parsed: {
-          need_web: Boolean(routerNeedWeb),
-          reason: routerReason,
-          suggested_queries: suggestedQueries,
-          must_cite: routerMustCite,
-        },
+      router_raw_output: routerRaw,
+      router_need_web: routerNeedWeb,
+      router_reason: routerReason,
+      router_suggested_queries: suggestedQueries,
+      enhanced_queries: searchQueriesUsed,
+      tavily_request_payload: tavilyRequestPayload,
+      tavily_raw_response: tavilyRawResponse,
+      parsed_search_results: searchResultsList.map((r) => ({
+        title: r.title,
+        url: r.url,
+        source: r.source,
+        snippet: r.snippet,
+      })),
+      search_context_string: searchContext.slice(0, 2000),
+      tutor_raw_answer: tutorRawAnswer,
+      final_answer: answerText,
+      deterministic_citations_applied: deterministicCitationsApplied,
+      citation_analysis: {
+        citations_present: citationsPresent,
+        ...citationAnalysis,
       },
-      search: {
-        called: searchCalled,
-        queries: searchQueriesUsed,
-        results: searchRawResults,
-      },
-      sources_used: sourcesUsedUrls,
-      answer: { text: answerText },
-      judge: {
+      judge_raw_output: diag.rawOutputs.join('\n===\n').slice(0, 2000),
+      judge_parsed_fields: {
         completeness_score: completenessScore,
         answer_alignment_score: answerAlignmentScore,
         retrieval_relevance_score: retrievalRelevanceScore,
@@ -1136,6 +1162,9 @@ async function main() {
       },
     };
     fs.appendFileSync(TRACE_PATH, JSON.stringify(caseTrace) + '\n');
+    const safeCaseId = c.case_id.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const caseTracePath = path.join(EVAL_TRACES_DIR, `${safeCaseId}.json`);
+    fs.writeFileSync(caseTracePath, JSON.stringify(caseTrace, null, 2));
 
     results.push({
       case_id: c.case_id,

@@ -1,23 +1,47 @@
 /* ------------------------------------------------------------------ */
 /*  /debug/traces — Chat trace viewer (observability)                 */
-/*  Gated: only accessible in development or with ?key=debug query.   */
+/*  Gated in production via query key: ?key=<DEBUG_TRACES_KEY|debug>. */
 /* ------------------------------------------------------------------ */
 
-import { redirect } from 'next/navigation';
 import { getRecentTraces, type ChatTrace } from '@/lib/traces';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 interface PageProps {
-  searchParams: { key?: string };
+  searchParams: { key?: string | string[] };
 }
 
 export default async function TracesPage({ searchParams }: PageProps) {
-  // Light access gate: block in production unless ?key=debug
+  // Access gate:
+  // - dev: always allow
+  // - prod: require ?key=<DEBUG_TRACES_KEY> if set, else ?key=debug
   const isProd = process.env.NODE_ENV === 'production';
-  if (isProd && searchParams.key !== 'debug') {
-    redirect('/');
+  const providedKey = Array.isArray(searchParams.key)
+    ? searchParams.key[0] ?? ''
+    : searchParams.key ?? '';
+  const configuredKey = (process.env.DEBUG_TRACES_KEY ?? '').trim();
+  const requiredKey = configuredKey || 'debug';
+  const isAuthorized = !isProd || providedKey === requiredKey;
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-gray-50 font-body">
+        <main className="mx-auto max-w-2xl px-6 py-12">
+          <div className="rounded-lg border border-amber-200 bg-white p-6">
+            <h1 className="font-headline text-lg font-semibold text-gray-900">
+              Debug Access Required
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              This page is protected in production.
+            </p>
+            <p className="mt-2 text-sm text-gray-600">
+              Open with <code>?key=...</code> using the configured debug key.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   const traces = await getRecentTraces(50);

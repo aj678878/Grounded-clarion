@@ -293,6 +293,7 @@ export async function POST(request: NextRequest) {
       searchContext
     );
     answerText = answerWithDebug.answer;
+    const tutorRawAnswer = answerText;
     latencyAnswerMs = Date.now() - answerStart;
     debugFlow.answer_output = {
       initial_raw_model_output: answerWithDebug.debug.raw_model_output,
@@ -314,11 +315,15 @@ export async function POST(request: NextRequest) {
         has_valid_sources_before: hasValidSourcesSection(before),
         has_valid_sources_after: hasValidSourcesSection(answerText),
       };
+      (debugFlow.answer_output as Record<string, unknown>).deterministic_citations_applied = true;
     } else {
       (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
         applied: false,
       };
+      (debugFlow.answer_output as Record<string, unknown>).deterministic_citations_applied = false;
     }
+    (debugFlow.answer_output as Record<string, unknown>).tutor_raw_answer = tutorRawAnswer;
+    (debugFlow.answer_output as Record<string, unknown>).final_answer = answerText;
 
     // Append timeout note if search failed
     if (searchTimedOut) {
