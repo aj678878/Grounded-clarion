@@ -312,6 +312,7 @@ Set need_web = true ONLY if:
     • Current status beyond the article's timeframe
     • Quantitative data not included in the excerpt
 - The answer would require introducing NEW factual claims not grounded in the article.
+- The question asks for comparison to past events, prior occurrences, or historical reference points not explicitly described in the article.
 
 Set need_web = false if:
 - The article excerpt contains enough information to answer through reasoning, explanation, or synthesis.
