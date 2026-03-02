@@ -383,6 +383,13 @@ Your answer MUST end with a **Sources:** section formatted exactly like this:
 1. [Source Title](https://actual-url.com)
 2. [Source Title](https://actual-url.com)
 
+When WEB CONTEXT is provided:
+
+- Your explanation must include specific factual details from the provided web context that directly help answer the user’s question.
+- Do not provide vague commentary or speculation if concrete information is available.
+- Do not state that the article lacks sufficient detail if the web context contains relevant information.
+- Integrate facts naturally into the explanation, not just in the Sources section.
+
 Rules:
 - Use markdown link syntax: [Title](URL). This is mandatory.
 - Include ONLY sources you actually used from the provided web results.
