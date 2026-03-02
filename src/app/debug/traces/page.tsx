@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 interface PageProps {
-  searchParams: { key?: string | string[] };
+  searchParams: { key?: string | string[]; full?: string | string[]; limit?: string | string[] };
 }
 
 export default async function TracesPage({ searchParams }: PageProps) {
@@ -23,6 +23,19 @@ export default async function TracesPage({ searchParams }: PageProps) {
   const configuredKey = (process.env.DEBUG_TRACES_KEY ?? '').trim();
   const requiredKey = configuredKey || 'debug';
   const isAuthorized = !isProd || providedKey === requiredKey;
+  const fullParam = Array.isArray(searchParams.full)
+    ? searchParams.full[0] ?? ''
+    : searchParams.full ?? '';
+  const limitParam = Array.isArray(searchParams.limit)
+    ? searchParams.limit[0] ?? ''
+    : searchParams.limit ?? '';
+  const includeDebugFlow = fullParam === '1';
+  const parsedLimit = Number.parseInt(limitParam, 10);
+  const limit = Number.isFinite(parsedLimit)
+    ? Math.max(1, Math.min(parsedLimit, includeDebugFlow ? 20 : 100))
+    : includeDebugFlow
+    ? 10
+    : 25;
 
   if (!isAuthorized) {
     return (
@@ -44,7 +57,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
     );
   }
 
-  const traces = await getRecentTraces(50);
+  const traces = await getRecentTraces(limit, includeDebugFlow, 4000);
 
   return (
     <div className="min-h-screen bg-gray-50 font-body">
@@ -57,6 +70,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
             </h1>
             <p className="text-xs text-gray-400">
               Last {traces.length} chat interactions
+              {includeDebugFlow ? ' (full debug payloads loaded)' : ' (summary mode)'}
             </p>
           </div>
           <a

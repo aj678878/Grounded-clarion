@@ -21,7 +21,7 @@ import {
   isSearchAvailable,
   formatSearchResultsForLLM,
 } from '@/lib/search';
-import { insertChatTrace, type ChatTrace } from '@/lib/traces';
+import { insertChatTrace, resetTraceWarning, type ChatTrace } from '@/lib/traces';
 import { ChatRequest } from '@/types';
 
 /** Detect citations in the answer: at least one markdown link [text](url). */
@@ -96,6 +96,9 @@ export async function POST(request: NextRequest) {
     },
   };
 
+  // Reset trace warning flag at start of each request
+  resetTraceWarning();
+
   const emitFlow = (stage: string, payload: unknown) => {
     console.log('[chat-flow]', JSON.stringify({ traceKey, stage, payload }));
   };
@@ -152,6 +155,37 @@ export async function POST(request: NextRequest) {
       user_message_chars: body.userMessage.length,
     };
     emitFlow('request_meta', debugFlow.request_meta);
+
+    // ---- EARLY TRACE: Log request received ----
+    insertChatTrace({
+      session_id: sessionId,
+      article_id: articleId,
+      thread_id: threadId,
+      user_message: userMessage,
+      router_need_web: null,
+      router_reason: null,
+      router_suggested_queries: null,
+      search_called: false,
+      search_queries: null,
+      search_sources: null,
+      search_error: null,
+      answer_text: '',
+      citations_present: false,
+      answer_char_count: 0,
+      latency_router_ms: null,
+      latency_search_ms: null,
+      latency_answer_ms: null,
+      latency_total_ms: 0,
+      debug_flow: {
+        stage: 'request_received',
+        payload: {
+          question: userMessage,
+          hasArticleText: Boolean(body.articleText && body.articleText.length > 0),
+          articleTextLength: body.articleText?.length ?? 0,
+          env: process.env.NODE_ENV || 'undefined',
+        },
+      },
+    }).catch((err) => console.error('[chat] Early trace insert failed:', err));
 
     const sanitizedHistory = body.chatHistory.map((m) => ({
       role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
