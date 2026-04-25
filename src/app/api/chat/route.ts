@@ -23,69 +23,12 @@ import {
 } from '@/lib/search';
 import { insertChatTrace, resetTraceWarning, type ChatTrace } from '@/lib/traces';
 import { cannedResponseFor } from '@/lib/canned-responses';
+import {
+  hasCitations,
+  hasValidSourcesSection,
+  enforceDeterministicSourcesSection,
+} from '@/lib/sources';
 import { ChatRequest } from '@/types';
-
-/** Detect citations in the answer: at least one markdown link [text](url). */
-function hasCitations(text: string): boolean {
-  return /\[.+?\]\(https?:\/\/.+?\)/.test(text);
-}
-
-/** Check if answer has a Sources section near the end (last 30%) with at least one URL and no [1],[2] markers. */
-function hasValidSourcesSection(text: string): boolean {
-  // Reject if numeric markers like [1], [2] are present anywhere
-  if (/\[\d+\]/.test(text)) return false;
-
-  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
-  let lastHeaderIndex = -1;
-  let match: RegExpExecArray | null;
-  while ((match = headerPattern.exec(text)) !== null) {
-    lastHeaderIndex = match.index;
-  }
-  if (lastHeaderIndex < 0) return false;
-  if (lastHeaderIndex < text.length * 0.7) return false;
-  const sectionText = text.slice(lastHeaderIndex);
-  return /https?:\/\/\S+/.test(sectionText);
-}
-
-function stripExistingSourcesSection(text: string): string {
-  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
-  let lastHeaderIndex = -1;
-  let match: RegExpExecArray | null;
-  while ((match = headerPattern.exec(text)) !== null) {
-    lastHeaderIndex = match.index;
-  }
-  return lastHeaderIndex >= 0 ? text.slice(0, lastHeaderIndex).trimEnd() : text.trimEnd();
-}
-
-function stripRawUrls(text: string): string {
-  return text.replace(/https?:\/\/[^\s)\]]+/gi, '').replace(/[ \t]+\n/g, '\n').trimEnd();
-}
-
-function enforceDeterministicSourcesSection(
-  answer: string,
-  sources: { title: string; url: string }[]
-): string {
-  if (sources.length === 0) return answer;
-  const seen = new Set<string>();
-  const top = sources
-    .filter((s) => typeof s.url === 'string' && s.url.startsWith('http'))
-    .filter((s) => {
-      if (seen.has(s.url)) return false;
-      seen.add(s.url);
-      return true;
-    })
-    .slice(0, 5)
-    .map((s) => ({
-      title: (s.title || 'Untitled source').replace(/\]/g, ''),
-      url: s.url,
-    }));
-
-  if (top.length === 0) return stripRawUrls(stripExistingSourcesSection(answer));
-
-  const body = stripRawUrls(stripExistingSourcesSection(answer));
-  const sourcesBlock = `Sources:\n${top.map((s) => `- [${s.title}](${s.url})`).join('\n')}`;
-  return body ? `${body}\n\n${sourcesBlock}` : sourcesBlock;
-}
 
 export async function POST(request: NextRequest) {
   const totalStart = Date.now();
