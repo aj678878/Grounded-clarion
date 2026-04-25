@@ -22,6 +22,7 @@ import {
   formatSearchResultsForLLM,
 } from '@/lib/search';
 import { insertChatTrace, resetTraceWarning, type ChatTrace } from '@/lib/traces';
+import { cannedResponseFor } from '@/lib/canned-responses';
 import { ChatRequest } from '@/types';
 
 /** Detect citations in the answer: at least one markdown link [text](url). */
@@ -200,110 +201,173 @@ export async function POST(request: NextRequest) {
     };
     emitFlow('sanitized', debugFlow.sanitized);
 
-    // ---- Step A: Sufficiency router ----
+    // ---- Step A: Sufficiency router (always run — also makes the intent gate work without Tavily) ----
     let searchContext = '';
     let searchTimedOut = false;
 
-    if (isSearchAvailable()) {
-      const routerStart = Date.now();
-      const routingWithDebug = await checkSufficiencyWithDebug(
-        body.articleText,
-        body.userMessage,
-        sanitizedHistory
-      );
-      const routing = routingWithDebug.result;
-      latencyRouterMs = Date.now() - routerStart;
-      debugFlow.router_input = {
-        article_excerpt_used: routingWithDebug.debug.article_excerpt_used,
-        recent_history_used: routingWithDebug.debug.recent_history_used,
-        user_message: body.userMessage,
-        model: routingWithDebug.debug.model,
-        max_tokens: routingWithDebug.debug.max_tokens,
-        user_prompt: routingWithDebug.debug.user_prompt,
-      };
-      debugFlow.router_output = {
-        routing,
-        latency_ms: latencyRouterMs,
-        parse_ok: routingWithDebug.debug.parse_ok,
-        parse_error: routingWithDebug.debug.parse_error,
-        raw_output: routingWithDebug.debug.raw_output,
-        used_default: routingWithDebug.debug.used_default,
-      };
-      emitFlow('router_input', debugFlow.router_input);
-      emitFlow('router_output', debugFlow.router_output);
+    const routerStart = Date.now();
+    const routingWithDebug = await checkSufficiencyWithDebug(
+      body.articleText,
+      body.userMessage,
+      sanitizedHistory
+    );
+    const routing = routingWithDebug.result;
+    latencyRouterMs = Date.now() - routerStart;
+    debugFlow.router_input = {
+      article_excerpt_used: routingWithDebug.debug.article_excerpt_used,
+      recent_history_used: routingWithDebug.debug.recent_history_used,
+      user_message: body.userMessage,
+      model: routingWithDebug.debug.model,
+      max_tokens: routingWithDebug.debug.max_tokens,
+      user_prompt: routingWithDebug.debug.user_prompt,
+    };
+    debugFlow.router_output = {
+      routing,
+      latency_ms: latencyRouterMs,
+      parse_ok: routingWithDebug.debug.parse_ok,
+      parse_error: routingWithDebug.debug.parse_error,
+      raw_output: routingWithDebug.debug.raw_output,
+      used_default: routingWithDebug.debug.used_default,
+    };
+    emitFlow('router_input', debugFlow.router_input);
+    emitFlow('router_output', debugFlow.router_output);
 
-      routerNeedWeb = routing.need_web;
-      routerReason = routing.reason;
-      routerSuggestedQueries = routing.suggested_queries;
+    routerNeedWeb = routing.need_web;
+    routerReason = routing.reason;
+    routerSuggestedQueries = routing.suggested_queries;
 
-      console.log('[chat] Router decision:', {
-        need_web: routing.need_web,
+    console.log('[chat] Router decision:', {
+      intent: routing.intent,
+      need_web: routing.need_web,
+      reason: routing.reason,
+      queries: routing.suggested_queries,
+      latency_ms: latencyRouterMs,
+    });
+
+    // ---- Step A.5: Short-circuit on decline intents (skip search + tutor) ----
+    const canned = cannedResponseFor(routing.intent);
+    if (canned !== null) {
+      answerText = canned;
+      const latencyTotalMs = Date.now() - totalStart;
+      debugFlow.short_circuit = {
+        intent: routing.intent,
         reason: routing.reason,
-        queries: routing.suggested_queries,
-        latency_ms: latencyRouterMs,
-      });
+        canned_response: canned,
+      };
+      debugFlow.timing = {
+        router_ms: latencyRouterMs,
+        search_ms: null,
+        answer_ms: null,
+        total_ms: latencyTotalMs,
+      };
+      debugFlow.final = {
+        response_status: 200,
+        citations_present: false,
+        answer_char_count: answerText.length,
+        search_timed_out: false,
+        short_circuited: true,
+      };
+      emitFlow('short_circuit', debugFlow.short_circuit);
+      emitFlow('timing', debugFlow.timing);
+      emitFlow('final', debugFlow.final);
 
-      // ---- Step B: Tavily search (if needed) ----
-      if (routing.need_web && routing.suggested_queries.length > 0) {
-        searchCalled = true;
-        searchQueries = [...routing.suggested_queries];
+      const trace: ChatTrace = {
+        session_id: sessionId,
+        article_id: articleId,
+        thread_id: threadId,
+        user_message: userMessage,
+        router_need_web: routerNeedWeb,
+        router_reason: routerReason,
+        router_suggested_queries: routerSuggestedQueries,
+        search_called: false,
+        search_queries: null,
+        search_sources: null,
+        search_error: null,
+        answer_text: answerText,
+        citations_present: false,
+        answer_char_count: answerText.length,
+        latency_router_ms: latencyRouterMs,
+        latency_search_ms: null,
+        latency_answer_ms: null,
+        latency_total_ms: latencyTotalMs,
+        debug_flow: debugFlow,
+      };
+      insertChatTrace(trace).catch((err) =>
+        console.error('[chat] Trace insert (short-circuit) failed:', err)
+      );
 
-        const searchStart = Date.now();
-        debugFlow.search_plan = {
-          is_search_available: true,
-          need_web: routing.need_web,
-          suggested_queries_raw: routing.suggested_queries,
-          enhanced_queries: searchQueries,
-        };
-        emitFlow('search_plan', debugFlow.search_plan);
+      return NextResponse.json({ assistantMessage: answerText });
+    }
 
-        try {
-          const { results, timedOut, debug } = await searchTavily(searchQueries, body.userMessage);
-          searchTimedOut = timedOut;
-          if (debug) {
-            debugFlow.tavily_request = {
-              queries_run: debug.queries_run,
-              payloads: debug.tavily_request_payloads,
-            };
-            debugFlow.tavily_raw_response = debug.tavily_raw;
-            debugFlow.search_transform = {
-              candidates_count_before_filter: debug.candidates_pre_filter.length,
-              candidates_pre_filter: debug.candidates_pre_filter,
-              skips: debug.skips,
-              scores: debug.scores,
-              selected: debug.selected,
-              enrichment: debug.enrichment,
-            };
-            emitFlow('tavily_request', debugFlow.tavily_request);
-            emitFlow('tavily_raw_response', debugFlow.tavily_raw_response);
-            emitFlow('search_transform', debugFlow.search_transform);
-          }
+    // ---- Step B: Tavily search (if available + needed) ----
+    if (isSearchAvailable() && routing.need_web && routing.suggested_queries.length > 0) {
+      searchCalled = true;
+      searchQueries = [...routing.suggested_queries];
 
-          if (results.length > 0) {
-            searchContext = formatSearchResultsForLLM(results);
-            searchSources = results.map((r) => ({
-              title: r.title,
-              url: r.url,
-              domain: r.source,
-            }));
-            debugFlow.search_context_output = {
-              search_context: searchContext,
-              char_length: searchContext.length,
-            };
-            emitFlow('search_context_output', debugFlow.search_context_output);
-          }
-        } catch (err) {
-          searchError = err instanceof Error ? err.message : String(err);
+      const searchStart = Date.now();
+      debugFlow.search_plan = {
+        is_search_available: true,
+        need_web: routing.need_web,
+        suggested_queries_raw: routing.suggested_queries,
+        enhanced_queries: searchQueries,
+      };
+      emitFlow('search_plan', debugFlow.search_plan);
+
+      try {
+        const { results, timedOut, debug } = await searchTavily(searchQueries, body.userMessage);
+        searchTimedOut = timedOut;
+        if (debug) {
+          debugFlow.tavily_request = {
+            queries_run: debug.queries_run,
+            payloads: debug.tavily_request_payloads,
+          };
+          debugFlow.tavily_raw_response = debug.tavily_raw;
+          debugFlow.search_transform = {
+            candidates_count_before_filter: debug.candidates_pre_filter.length,
+            candidates_pre_filter: debug.candidates_pre_filter,
+            skips: debug.skips,
+            scores: debug.scores,
+            selected: debug.selected,
+            enrichment: debug.enrichment,
+          };
+          emitFlow('tavily_request', debugFlow.tavily_request);
+          emitFlow('tavily_raw_response', debugFlow.tavily_raw_response);
+          emitFlow('search_transform', debugFlow.search_transform);
         }
-        latencySearchMs = Date.now() - searchStart;
+
+        if (results.length > 0) {
+          searchContext = formatSearchResultsForLLM(results);
+          searchSources = results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            domain: r.source,
+          }));
+          debugFlow.search_context_output = {
+            search_context: searchContext,
+            char_length: searchContext.length,
+          };
+          emitFlow('search_context_output', debugFlow.search_context_output);
+        }
+      } catch (err) {
+        searchError = err instanceof Error ? err.message : String(err);
       }
-    } else {
+      latencySearchMs = Date.now() - searchStart;
+    } else if (!isSearchAvailable()) {
       debugFlow.search_plan = {
         is_search_available: false,
-        need_web: null,
-        suggested_queries_raw: [],
+        need_web: routing.need_web,
+        suggested_queries_raw: routing.suggested_queries,
         enhanced_queries: [],
         skipped_reason: 'TAVILY_API_KEY not set',
+      };
+      emitFlow('search_plan', debugFlow.search_plan);
+    } else {
+      debugFlow.search_plan = {
+        is_search_available: true,
+        need_web: routing.need_web,
+        suggested_queries_raw: routing.suggested_queries,
+        enhanced_queries: [],
+        skipped_reason: 'router decided need_web = false',
       };
       emitFlow('search_plan', debugFlow.search_plan);
     }
