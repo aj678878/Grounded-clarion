@@ -1,0 +1,14 @@
+/* ------------------------------------------------------------------ */
+/*  Centralized runtime config — single source of truth for models.   */
+/*                                                                    */
+/*  Env vars are read once at module load. Override per-call by       */
+/*  passing `model` explicitly to callAnthropic / generateText.       */
+/* ------------------------------------------------------------------ */
+
+const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+
+export const MODELS = {
+  router: process.env.MODEL_ROUTER ?? DEFAULT_MODEL,
+  tutor: process.env.MODEL_TUTOR ?? DEFAULT_MODEL,
+  judge: process.env.MODEL_JUDGE ?? DEFAULT_MODEL,
+} as const;

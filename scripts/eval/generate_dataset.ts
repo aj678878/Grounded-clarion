@@ -22,12 +22,13 @@ import {
   withRetry,
   safeParseJson,
 } from '../../src/lib/llm/index';
+import { MODELS } from '../../src/lib/config';
 
 /* ---------- Config ---------- */
 
 const GUARDIAN_API_KEY = process.env.GUARDIAN_API_KEY;
 const GUARDIAN_BASE = process.env.GUARDIAN_API_BASE_URL || 'https://content.guardianapis.com';
-const MODEL = process.env.MODEL_JUDGE ?? 'claude-3-haiku-20240307';
+const MODEL = MODELS.judge;
 
 const TARGET_ARTICLES = 5;
 const QUESTIONS_PER_ARTICLE = 4;

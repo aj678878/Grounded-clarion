@@ -6,6 +6,7 @@
 /* ------------------------------------------------------------------ */
 
 import { rateLimit } from './limiter';
+import { MODELS } from '../config';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -39,10 +40,7 @@ export async function callAnthropic(opts: CallAnthropicOptions): Promise<string>
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
 
-  const model =
-    opts.model ??
-    process.env.MODEL_TUTOR ??
-    'claude-3-haiku-20240307';
+  const model = opts.model ?? MODELS.tutor;
 
   // ---- Rate-limit gate ----
   await rateLimit();
