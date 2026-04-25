@@ -18,6 +18,8 @@ export interface GuardianArticle {
 // Full article with body HTML
 export interface ArticleDetail extends GuardianArticle {
   bodyHtml: string;
+  wordcount?: number;
+  byline?: string;
 }
 
 // Feed API response

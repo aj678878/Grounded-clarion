@@ -110,12 +110,16 @@ export async function fetchArticle(id: string): Promise<ArticleDetail> {
   const base = getGuardianBaseUrl();
 
   const res = await fetchWithRetry(
-    `${base}/${id}?show-fields=body,trailText,thumbnail&api-key=${apiKey}`
+    `${base}/${id}?show-fields=body,trailText,thumbnail,wordcount,byline&api-key=${apiKey}`
   );
   const data = await res.json();
   const content = data.response?.content;
 
   if (!content) throw new Error('Article not found');
+
+  const wordcountRaw = content.fields?.wordcount;
+  const wordcount =
+    typeof wordcountRaw === 'string' ? parseInt(wordcountRaw, 10) || undefined : undefined;
 
   const article: ArticleDetail = {
     id: content.id,
@@ -127,6 +131,8 @@ export async function fetchArticle(id: string): Promise<ArticleDetail> {
     trailText: content.fields?.trailText ?? '',
     thumbnail: content.fields?.thumbnail ?? '',
     bodyHtml: content.fields?.body ?? '',
+    wordcount,
+    byline: content.fields?.byline ?? '',
     category: content.sectionName,
   };
 

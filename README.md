@@ -260,8 +260,8 @@ Traces are persisted even on errors (with `answer_text` prefixed `ERROR:`).
 3. Add environment variables:
    - `GUARDIAN_API_KEY`
    - `ANTHROPIC_API_KEY`
-   - `MODEL_TUTOR=claude-3-haiku-20240307`
-   - `MODEL_ROUTER=claude-3-haiku-20240307`
+   - `MODEL_TUTOR=claude-haiku-4-5-20251001`
+   - `MODEL_ROUTER=claude-haiku-4-5-20251001`
    - `LLM_MIN_DELAY_MS=13000` — rate-limit gap (Anthropic free tier: 5 RPM)
    - `DATABASE_URL` (auto-set if using Vercel Postgres integration)
    - `TAVILY_API_KEY` — enables autonomous web context lookup (optional, recommended)

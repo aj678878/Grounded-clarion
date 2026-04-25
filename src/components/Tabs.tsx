@@ -7,9 +7,18 @@ interface TabsProps {
   onChange: (tab: Category) => void;
 }
 
+/**
+ * Standalone tab strip — same uppercase navy-underline style as NavBar's
+ * inline tabs. Kept as a separate component for any context that wants the
+ * tabs without the masthead nav (e.g. modals or future surfaces).
+ */
 export default function Tabs({ active, onChange }: TabsProps) {
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-gray-200 pb-px" role="tablist">
+    <nav
+      className="flex gap-1 overflow-x-auto"
+      role="tablist"
+      style={{ borderBottom: '2px solid var(--ink)' }}
+    >
       {CATEGORIES.map((cat) => {
         const isActive = cat === active;
         return (
@@ -18,13 +27,19 @@ export default function Tabs({ active, onChange }: TabsProps) {
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(cat)}
-            className={
-              'whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-body font-medium transition-colors ' +
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ' +
-              (isActive
-                ? 'border-b-2 border-primary text-primary'
-                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50')
-            }
+            className="font-ui uppercase whitespace-nowrap transition-colors"
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              letterSpacing: '0.7px',
+              padding: '12px 14px',
+              marginBottom: isActive ? '-2px' : 0,
+              background: 'transparent',
+              color: isActive ? 'var(--accent)' : 'var(--ink-2)',
+              borderBottom: isActive
+                ? '3px solid var(--accent)'
+                : '3px solid transparent',
+            }}
           >
             {cat}
           </button>

@@ -41,6 +41,8 @@ import {
   formatSearchResultsForLLM,
 } from '../../src/lib/search';
 
+import { MODELS } from '../../src/lib/config';
+
 /* ================================================================== */
 /*  Config                                                            */
 /* ================================================================== */
@@ -48,9 +50,9 @@ import {
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? '';
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY ?? '';
 
-const MODEL_ROUTER = process.env.MODEL_ROUTER ?? 'claude-3-haiku-20240307';
-const MODEL_TUTOR = process.env.MODEL_TUTOR ?? 'claude-3-haiku-20240307';
-const MODEL_JUDGE = process.env.MODEL_JUDGE ?? 'claude-3-haiku-20240307';
+const MODEL_ROUTER = MODELS.router;
+const MODEL_TUTOR = MODELS.tutor;
+const MODEL_JUDGE = MODELS.judge;
 
 const DATASET_PATH = path.resolve(
   process.cwd(),

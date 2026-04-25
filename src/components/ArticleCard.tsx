@@ -1,77 +1,204 @@
 'use client';
 
 import Link from 'next/link';
-import { GuardianArticle, SECTION_COLORS } from '@/types';
-import Thumbnail from './Thumbnail';
-import Button from './Button';
+import { GuardianArticle } from '@/types';
+import ImgPlaceholder from './ImgPlaceholder';
 
-interface ArticleCardProps {
+interface CardProps {
   article: GuardianArticle;
+  index?: number;
 }
 
-function formatDate(iso: string): string {
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]+>/g, '').trim();
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
+function bylineFromUrl(url: string): string {
   try {
-    return new Date(iso).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    return `Clarion · ${host}`;
   } catch {
-    return iso;
+    return 'Clarion';
   }
 }
 
-export default function ArticleCard({ article }: ArticleCardProps) {
-  const chipColor =
-    SECTION_COLORS[article.category.toLowerCase()] ??
-    SECTION_COLORS[article.sectionId] ??
-    'bg-gray-100 text-gray-600 border-gray-200';
+/* ---------- Column card (used inside the 3-col front-page grid) ---------- */
+
+export function ColCard({ article, index = 1 }: CardProps) {
+  const trail = stripHtml(article.trailText ?? '');
+  const href = `/article/${article.id}`;
 
   return (
-    <article className="group flex gap-4 rounded-lg border border-gray-100 bg-white p-4 transition-shadow hover:shadow-md">
-      {/* Thumbnail */}
-      <div className="hidden sm:block h-28 w-28 flex-shrink-0 overflow-hidden rounded-md bg-gray-50">
-        <Thumbnail src={article.thumbnail} alt={article.webTitle} sectionName={article.category} />
+    <article
+      className="py-5"
+      style={{ borderBottom: '1px solid var(--border)' }}
+    >
+      <p
+        className="font-ui uppercase"
+        style={{
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '1px',
+          color: 'var(--ink-3)',
+          marginBottom: '6px',
+        }}
+      >
+        {article.category} · {String(index).padStart(2, '0')}
+      </p>
+
+      <Link href={href} className="block group">
+        <h3
+          className="font-headline transition-colors"
+          style={{
+            fontSize: '18.5px',
+            fontWeight: 700,
+            lineHeight: 1.22,
+            color: 'var(--ink)',
+          }}
+        >
+          <span className="group-hover:[color:var(--accent)]">{article.webTitle}</span>
+        </h3>
+      </Link>
+
+      <p
+        className="font-ui uppercase"
+        style={{
+          fontSize: '10.5px',
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          color: 'var(--ink-3)',
+          marginTop: '8px',
+        }}
+      >
+        {bylineFromUrl(article.webUrl)}
+      </p>
+
+      {trail && (
+        <p
+          className="font-body"
+          style={{
+            fontSize: '13.5px',
+            lineHeight: 1.6,
+            color: 'var(--ink-2)',
+            marginTop: '10px',
+          }}
+        >
+          {truncate(trail, 160)}
+        </p>
+      )}
+
+      <Link
+        href={href}
+        className="font-ui uppercase mt-3 inline-block"
+        style={{
+          fontSize: '10.5px',
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          color: 'var(--accent)',
+          textDecoration: 'underline',
+        }}
+      >
+        Read &amp; discuss →
+      </Link>
+    </article>
+  );
+}
+
+/* ---------- Flat card (used in the filtered / search single-column view) ---------- */
+
+export function FlatCard({ article, index = 1 }: CardProps) {
+  const trail = stripHtml(article.trailText ?? '');
+  const href = `/article/${article.id}`;
+
+  return (
+    <article
+      className="grid gap-6 py-6"
+      style={{
+        gridTemplateColumns: '1fr 180px',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <div>
+        <p
+          className="font-ui uppercase"
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '1px',
+            color: 'var(--red)',
+            marginBottom: '8px',
+          }}
+        >
+          {article.category} · {String(index).padStart(2, '0')}
+        </p>
+
+        <Link href={href} className="block group">
+          <h3
+            className="font-headline transition-colors"
+            style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              lineHeight: 1.18,
+              color: 'var(--ink)',
+            }}
+          >
+            <span className="group-hover:[color:var(--accent)]">{article.webTitle}</span>
+          </h3>
+        </Link>
+
+        <p
+          className="font-ui uppercase"
+          style={{
+            fontSize: '10.5px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            color: 'var(--ink-3)',
+            marginTop: '8px',
+          }}
+        >
+          {bylineFromUrl(article.webUrl)}
+        </p>
+
+        {trail && (
+          <p
+            className="font-body"
+            style={{
+              fontSize: '14px',
+              lineHeight: 1.65,
+              color: 'var(--ink-2)',
+              marginTop: '10px',
+            }}
+          >
+            {trail}
+          </p>
+        )}
+
+        <Link
+          href={href}
+          className="font-ui uppercase mt-3 inline-block"
+          style={{
+            fontSize: '10.5px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            color: 'var(--accent)',
+            textDecoration: 'underline',
+          }}
+        >
+          Read &amp; discuss →
+        </Link>
       </div>
 
-      {/* Content */}
-      <div className="flex min-w-0 flex-1 flex-col justify-between">
-        <div>
-          {/* Section chip + date */}
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium ${chipColor}`}
-            >
-              {article.category}
-            </span>
-            <time className="text-xs text-gray-400 font-body" dateTime={article.webPublicationDate}>
-              {formatDate(article.webPublicationDate)}
-            </time>
-          </div>
-
-          {/* Headline */}
-          <h3 className="font-headline text-base font-bold leading-snug text-gray-900 line-clamp-2 group-hover:text-primary transition-colors">
-            {article.webTitle}
-          </h3>
-
-          {/* Trail text */}
-          {article.trailText && (
-            <p
-              className="mt-1 text-sm text-gray-500 font-body line-clamp-2"
-              dangerouslySetInnerHTML={{ __html: article.trailText }}
-            />
-          )}
-        </div>
-
-        {/* Open button */}
-        <div className="mt-3 flex items-end justify-end">
-          <Link href={`/article/${article.id}`} tabIndex={-1}>
-            <Button variant="secondary" size="sm">
-              Read &amp; discuss
-            </Button>
-          </Link>
-        </div>
+      <div className="hidden sm:block">
+        <ImgPlaceholder ratio="square" caption={article.category.toUpperCase()} />
       </div>
     </article>
   );
 }
+
+/** Default export keeps backwards compatibility with any straggling `import ArticleCard` sites. */
+export default ColCard;
