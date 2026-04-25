@@ -11,6 +11,12 @@ interface ChatPanelProps {
   articleText: string;
 }
 
+interface ExtMessage extends ChatMessage {
+  threadId: string;
+  sources?: { title: string; url: string }[];
+  fromWebSearch?: boolean;
+}
+
 const STARTER_PROMPTS = [
   'What is the main argument here?',
   'Why does this matter?',
@@ -22,7 +28,6 @@ async function logMetric(event: {
   article_id: string;
   thread_id: string;
   event_type: string;
-  payload?: Record<string, unknown>;
 }) {
   try {
     await fetch('/api/metric', {
@@ -36,7 +41,7 @@ async function logMetric(event: {
 }
 
 export default function ChatPanel({ articleId, articleTitle, articleText }: ChatPanelProps) {
-  const [messages, setMessages] = useState<(ChatMessage & { threadId: string })[]>([]);
+  const [messages, setMessages] = useState<ExtMessage[]>([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,19 +69,10 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
       if (!tid) {
         tid = generateThreadId();
         setThreadId(tid);
-        logMetric({
-          session_id: sessionId,
-          article_id: articleId,
-          thread_id: tid,
-          event_type: 'thread_started',
-        });
+        logMetric({ session_id: sessionId, article_id: articleId, thread_id: tid, event_type: 'thread_started' });
       }
 
-      const userMsg: ChatMessage & { threadId: string } = {
-        role: 'user',
-        content: trimmed,
-        threadId: tid,
-      };
+      const userMsg: ExtMessage = { role: 'user', content: trimmed, threadId: tid };
       const next = [...messages, userMsg];
       setMessages(next);
       setIsLoading(true);
@@ -107,19 +103,16 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         }
 
         const data = await res.json();
-        const assistantMsg: ChatMessage & { threadId: string } = {
+        const assistantMsg: ExtMessage = {
           role: 'assistant',
           content: data.assistantMessage,
           threadId: tid,
+          sources: data.sources ?? [],
+          fromWebSearch: data.fromWebSearch ?? false,
         };
         setMessages([...next, assistantMsg]);
 
-        logMetric({
-          session_id: sessionId,
-          article_id: articleId,
-          thread_id: tid,
-          event_type: 'turn_added',
-        });
+        logMetric({ session_id: sessionId, article_id: articleId, thread_id: tid, event_type: 'turn_added' });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Something went wrong';
         if (msg.includes('LLM_TIMEOUT')) {
@@ -140,9 +133,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
     [input, isLoading, threadId, messages, sessionId, articleId, articleTitle, articleText]
   );
 
-  const handleSend = useCallback(() => {
-    sendMessage(input);
-  }, [sendMessage, input]);
+  const handleSend = useCallback(() => sendMessage(input), [sendMessage, input]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -154,50 +145,35 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
   const showStarter = messages.length === 0 && !isLoading;
 
   return (
-    <div
-      className="flex h-full flex-col"
-      style={{ background: 'var(--paper-card)' }}
-    >
+    <div className="flex h-full flex-col" style={{ background: 'var(--paper-card)' }}>
       {/* ---- Header ---- */}
       <div
         className="flex-shrink-0"
-        style={{
-          padding: '16px 20px 14px',
-          borderBottom: '2px solid var(--ink)',
-          background: 'var(--paper-card)',
-        }}
+        style={{ padding: '16px 20px 14px', borderBottom: '2px solid var(--ink)', background: 'var(--paper-card)' }}
       >
-        <h2
-          className="font-headline"
-          style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}
-        >
+        <h2 className="font-headline" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}>
           Ask the Editor
         </h2>
-        <p
-          className="font-ui uppercase mt-1"
-          style={{
-            fontSize: '10px',
-            fontWeight: 600,
-            letterSpacing: '1px',
-            color: 'var(--ink-3)',
-          }}
-        >
+        <p className="font-ui uppercase mt-1" style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '1px', color: 'var(--ink-3)' }}>
           Clarion · Editorial AI
         </p>
       </div>
 
-      {/* ---- Messages ---- */}
+      {/* ---- Messages — overscroll-behavior: contain stops scroll chaining into article ---- */}
       <div
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto chat-scroll"
-        style={{ padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}
+        style={{
+          padding: '18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px',
+          overscrollBehavior: 'contain',
+        }}
       >
         {showStarter && (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-2 text-center">
-            <p
-              className="font-headline italic"
-              style={{ fontSize: '17px', color: 'var(--ink-2)', lineHeight: 1.4 }}
-            >
+            <p className="font-headline italic" style={{ fontSize: '17px', color: 'var(--ink-2)', lineHeight: 1.4 }}>
               Questions about this article?
             </p>
             <div className="flex flex-col gap-2 w-full">
@@ -207,13 +183,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
                   type="button"
                   onClick={() => sendMessage(prompt)}
                   className="font-body italic text-left transition-colors"
-                  style={{
-                    fontSize: '12.5px',
-                    background: 'var(--paper-alt)',
-                    border: '1px solid var(--border)',
-                    padding: '8px 14px',
-                    color: 'var(--ink-2)',
-                  }}
+                  style={{ fontSize: '12.5px', background: 'var(--paper-alt)', border: '1px solid var(--border)', padding: '8px 14px', color: 'var(--ink-2)' }}
                 >
                   {prompt}
                 </button>
@@ -223,7 +193,13 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         )}
 
         {messages.map((msg, i) => (
-          <ChatBubble key={i} role={msg.role} content={msg.content} />
+          <ChatBubble
+            key={i}
+            role={msg.role}
+            content={msg.content}
+            sources={msg.sources}
+            fromWebSearch={msg.fromWebSearch}
+          />
         ))}
 
         {isLoading && (
@@ -239,21 +215,10 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         {error && (
           <div
             className="font-ui"
-            style={{
-              fontSize: '12px',
-              padding: '10px 12px',
-              background: 'var(--paper-alt)',
-              borderLeft: '3px solid var(--red)',
-              color: 'var(--ink-2)',
-            }}
+            style={{ fontSize: '12px', padding: '10px 12px', background: 'var(--paper-alt)', borderLeft: '3px solid var(--red)', color: 'var(--ink-2)' }}
           >
             {error}
-            <button
-              type="button"
-              onClick={handleSend}
-              className="ml-2 underline"
-              style={{ color: 'var(--accent)' }}
-            >
+            <button type="button" onClick={handleSend} className="ml-2 underline" style={{ color: 'var(--accent)' }}>
               Retry
             </button>
           </div>
@@ -263,11 +228,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
       {/* ---- Composer ---- */}
       <div
         className="flex-shrink-0 flex gap-2"
-        style={{
-          borderTop: '1px solid var(--border)',
-          padding: '14px 16px',
-          background: 'var(--paper-card)',
-        }}
+        style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', background: 'var(--paper-card)' }}
       >
         <input
           ref={inputRef}

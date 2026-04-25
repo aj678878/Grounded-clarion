@@ -195,8 +195,12 @@ describe('POST /api/chat — answer path', () => {
     expect(searchCtxArg).toContain('Fed cuts rates');
     expect(searchCtxArg).toContain('https://reuters.com/x');
 
-    expect(body.assistantMessage).toContain('Sources:');
-    expect(body.assistantMessage).toContain('https://reuters.com/x');
+    // Sources are now returned structured — not embedded in the prose
+    expect(body.sources).toEqual(
+      expect.arrayContaining([expect.objectContaining({ url: 'https://reuters.com/x' })])
+    );
+    expect(body.fromWebSearch).toBe(true);
+    expect(body.assistantMessage).not.toContain('Sources:');
   });
 
   it('skips Tavily when search is unavailable, even if router says need_web=true', async () => {
@@ -213,6 +217,8 @@ describe('POST /api/chat — answer path', () => {
     expect(mockedTutor).toHaveBeenCalledTimes(1);
     expect(mockedTutor.mock.calls[0][3]).toBe('');
     expect(body.assistantMessage).toBe('article-only fallback');
+    expect(body.fromWebSearch).toBe(false);
+    expect(body.sources).toEqual([]);
   });
 });
 

@@ -55,6 +55,8 @@ export interface ChatRequest {
 // POST /api/chat response body
 export interface ChatResponse {
   assistantMessage: string;
+  sources: { title: string; url: string }[];
+  fromWebSearch: boolean;
 }
 
 // POST /api/metric request body
