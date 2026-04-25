@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ChatMessage } from '@/types';
 import { getSessionId, generateThreadId } from '@/lib/session';
 import ChatBubble from './ChatBubble';
-import Button from './Button';
 
 interface ChatPanelProps {
   articleId: string;
@@ -12,7 +11,12 @@ interface ChatPanelProps {
   articleText: string;
 }
 
-/** Helper to log a metric event (fire-and-forget). */
+const STARTER_PROMPTS = [
+  'What is the main argument here?',
+  'Why does this matter?',
+  'What background context am I missing?',
+];
+
 async function logMetric(event: {
   session_id: string;
   article_id: string;
@@ -38,127 +42,108 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const sessionId = useMemo(() => getSessionId(), []);
 
-  // Autoscroll the messages container to bottom on new messages
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (container) {
-      container.scrollTop = container.scrollHeight;
-    }
+    if (container) container.scrollTop = container.scrollHeight;
   }, [messages, isLoading]);
 
-  /* ---- Send message ---- */
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isLoading) return;
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isLoading) return;
 
-    setInput('');
-    setError(null);
+      setInput('');
+      setError(null);
 
-    // Start new thread if none active
-    let tid = threadId;
-    if (!tid) {
-      tid = generateThreadId();
-      setThreadId(tid);
-      logMetric({
-        session_id: sessionId,
-        article_id: articleId,
-        thread_id: tid,
-        event_type: 'thread_started',
-      });
-    }
-
-    const userMsg: ChatMessage & { threadId: string } = {
-      role: 'user',
-      content: text,
-      threadId: tid,
-    };
-    const next = [...messages, userMsg];
-    setMessages(next);
-    setIsLoading(true);
-
-    try {
-      // Build chat history for this thread only
-      const threadHistory = next
-        .filter((m) => m.threadId === tid)
-        .slice(0, -1) // exclude the message we just added
-        .map(({ role, content }) => ({ role, content }));
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let tid = threadId;
+      if (!tid) {
+        tid = generateThreadId();
+        setThreadId(tid);
+        logMetric({
           session_id: sessionId,
           article_id: articleId,
-          article_title: articleTitle ?? '',
-          articleText,
-          chatHistory: threadHistory,
-          userMessage: text,
           thread_id: tid,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed (${res.status})`);
+          event_type: 'thread_started',
+        });
       }
 
-      const data = await res.json();
-      const assistantMsg: ChatMessage & { threadId: string } = {
-        role: 'assistant',
-        content: data.assistantMessage,
+      const userMsg: ChatMessage & { threadId: string } = {
+        role: 'user',
+        content: trimmed,
         threadId: tid,
       };
-      setMessages([...next, assistantMsg]);
+      const next = [...messages, userMsg];
+      setMessages(next);
+      setIsLoading(true);
 
-      logMetric({
-        session_id: sessionId,
-        article_id: articleId,
-        thread_id: tid,
-        event_type: 'turn_added',
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong';
-      if (msg.includes('LLM_TIMEOUT')) {
-        setError('The AI took too long to respond. Please try again.');
-      } else if (msg.includes('QUOTA_EXCEEDED')) {
-        setError('API quota exceeded. Please try again later.');
-      } else if (msg.includes('TOKEN_OVERFLOW')) {
-        setError('Conversation limit reached. Please start a new question or refresh the page.');
-      } else {
-        setError(msg);
+      try {
+        const threadHistory = next
+          .filter((m) => m.threadId === tid)
+          .slice(0, -1)
+          .map(({ role, content }) => ({ role, content }));
+
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: sessionId,
+            article_id: articleId,
+            article_title: articleTitle ?? '',
+            articleText,
+            chatHistory: threadHistory,
+            userMessage: trimmed,
+            thread_id: tid,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Request failed (${res.status})`);
+        }
+
+        const data = await res.json();
+        const assistantMsg: ChatMessage & { threadId: string } = {
+          role: 'assistant',
+          content: data.assistantMessage,
+          threadId: tid,
+        };
+        setMessages([...next, assistantMsg]);
+
+        logMetric({
+          session_id: sessionId,
+          article_id: articleId,
+          thread_id: tid,
+          event_type: 'turn_added',
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Something went wrong';
+        if (msg.includes('LLM_TIMEOUT')) {
+          setError('The AI took too long to respond. Please try again.');
+        } else if (msg.includes('QUOTA_EXCEEDED')) {
+          setError('API quota exceeded. Please try again later.');
+        } else if (msg.includes('TOKEN_OVERFLOW')) {
+          setError('Conversation limit reached. Start a new question or refresh the page.');
+        } else {
+          setError(msg);
+        }
+        setMessages(messages);
+      } finally {
+        setIsLoading(false);
+        inputRef.current?.focus();
       }
-      // Remove the user message on error
-      setMessages(messages);
-    } finally {
-      setIsLoading(false);
-      inputRef.current?.focus();
-    }
-  }, [input, isLoading, threadId, messages, sessionId, articleId, articleText]);
+    },
+    [input, isLoading, threadId, messages, sessionId, articleId, articleTitle, articleText]
+  );
 
-  /* ---- New question ---- */
-  const handleNewQuestion = () => {
-    setThreadId(null);
-    setError(null);
-    inputRef.current?.focus();
-  };
+  const handleSend = useCallback(() => {
+    sendMessage(input);
+  }, [sendMessage, input]);
 
-  /* ---- Clear ---- */
-  const handleClear = (tid: string) => {
-    logMetric({
-      session_id: sessionId,
-      article_id: articleId,
-      thread_id: tid,
-      event_type: 'clear_clicked',
-    });
-  };
-
-  /* ---- Key handler ---- */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -166,119 +151,164 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
     }
   };
 
+  const showStarter = messages.length === 0 && !isLoading;
+
   return (
-    /*
-      This component expects its parent to set the height
-      (e.g. the aside in ArticleView fills the viewport below the header).
-      We use flex-col + h-full so:
-        - header is pinned top
-        - messages area scrolls
-        - composer is pinned bottom
-    */
-    <div className="flex h-full flex-col">
-      {/* ---- Chat header (pinned top) ---- */}
-      <div className="flex-shrink-0 border-b border-gray-100 px-4 py-3">
-        <h2 className="font-headline text-sm font-bold text-gray-800">
-          Ask about this article
+    <div
+      className="flex h-full flex-col"
+      style={{ background: 'var(--paper-card)' }}
+    >
+      {/* ---- Header ---- */}
+      <div
+        className="flex-shrink-0"
+        style={{
+          padding: '16px 20px 14px',
+          borderBottom: '2px solid var(--ink)',
+          background: 'var(--paper-card)',
+        }}
+      >
+        <h2
+          className="font-headline"
+          style={{ fontSize: '14px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 }}
+        >
+          Ask the Editor
         </h2>
+        <p
+          className="font-ui uppercase mt-1"
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '1px',
+            color: 'var(--ink-3)',
+          }}
+        >
+          Clarion · Editorial AI
+        </p>
       </div>
 
-      {/* ---- Scrollable messages area ---- */}
+      {/* ---- Messages ---- */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4 chat-scroll"
+        className="flex-1 min-h-0 overflow-y-auto chat-scroll"
+        style={{ padding: '18px 18px', display: 'flex', flexDirection: 'column', gap: '14px' }}
       >
-        {messages.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/5 text-primary/40">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <p className="text-sm text-gray-400 font-body max-w-[200px]">
-              Ask a question to better understand this article.
+        {showStarter && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-2 text-center">
+            <p
+              className="font-headline italic"
+              style={{ fontSize: '17px', color: 'var(--ink-2)', lineHeight: 1.4 }}
+            >
+              Questions about this article?
             </p>
+            <div className="flex flex-col gap-2 w-full">
+              {STARTER_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => sendMessage(prompt)}
+                  className="font-body italic text-left transition-colors"
+                  style={{
+                    fontSize: '12.5px',
+                    background: 'var(--paper-alt)',
+                    border: '1px solid var(--border)',
+                    padding: '8px 14px',
+                    color: 'var(--ink-2)',
+                  }}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Thread separator + messages */}
-        {messages.map((msg, i) => {
-          const prevThread = i > 0 ? messages[i - 1].threadId : null;
-          const showSeparator = msg.threadId !== prevThread && i > 0;
-          return (
-            <div key={i}>
-              {showSeparator && (
-                <div className="my-4 flex items-center gap-2">
-                  <div className="flex-1 border-t border-gray-200" />
-                  <span className="text-xs text-gray-300 font-body">new question</span>
-                  <div className="flex-1 border-t border-gray-200" />
-                </div>
-              )}
-              <ChatBubble
-                role={msg.role}
-                content={msg.content}
-                showClear={msg.role === 'assistant' && msg.threadId === threadId}
-                onClear={() => handleClear(msg.threadId)}
-              />
-            </div>
-          );
-        })}
+        {messages.map((msg, i) => (
+          <ChatBubble key={i} role={msg.role} content={msg.content} />
+        ))}
 
-        {/* Typing indicator */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
-              <div className="flex gap-1">
-                <span className="h-2 w-2 rounded-full bg-gray-300 animate-bounce [animation-delay:0ms]" />
-                <span className="h-2 w-2 rounded-full bg-gray-300 animate-bounce [animation-delay:150ms]" />
-                <span className="h-2 w-2 rounded-full bg-gray-300 animate-bounce [animation-delay:300ms]" />
-              </div>
+            <div style={{ padding: '10px 14px', background: 'var(--paper-alt)' }}>
+              <span className="ink-dot" />
+              <span className="ink-dot" style={{ animationDelay: '0.15s' }} />
+              <span className="ink-dot" style={{ animationDelay: '0.3s' }} />
             </div>
           </div>
         )}
 
-        {/* Error */}
         {error && (
-          <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-            <p className="text-sm text-amber-800 font-body">{error}</p>
+          <div
+            className="font-ui"
+            style={{
+              fontSize: '12px',
+              padding: '10px 12px',
+              background: 'var(--paper-alt)',
+              borderLeft: '3px solid var(--red)',
+              color: 'var(--ink-2)',
+            }}
+          >
+            {error}
             <button
+              type="button"
               onClick={handleSend}
-              className="mt-1 text-xs font-medium text-amber-700 underline hover:text-amber-900"
+              className="ml-2 underline"
+              style={{ color: 'var(--accent)' }}
             >
               Retry
             </button>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* ---- Composer (pinned bottom) ---- */}
-      <div className="flex-shrink-0 border-t border-gray-100 bg-white p-3 space-y-2">
-        {threadId && (
-          <button
-            onClick={handleNewQuestion}
-            className="w-full text-xs text-gray-400 hover:text-gray-600 font-body transition-colors py-1"
-          >
-            + New question
-          </button>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a question…"
-            disabled={isLoading}
-            className="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-body text-gray-900 placeholder:text-gray-400 focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-          />
-          <Button onClick={handleSend} disabled={isLoading || !input.trim()} size="sm">
-            Send
-          </Button>
-        </div>
+      {/* ---- Composer ---- */}
+      <div
+        className="flex-shrink-0 flex gap-2"
+        style={{
+          borderTop: '1px solid var(--border)',
+          padding: '14px 16px',
+          background: 'var(--paper-card)',
+        }}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask a question…"
+          disabled={isLoading}
+          className="flex-1 font-body italic"
+          style={{
+            fontSize: '13px',
+            border: '1px solid var(--border)',
+            background: 'var(--paper)',
+            color: 'var(--ink)',
+            padding: '8px 10px',
+            outline: 'none',
+            borderRadius: 0,
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+          onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={isLoading || !input.trim()}
+          className="font-ui uppercase"
+          style={{
+            fontSize: '11px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            padding: '8px 16px',
+            background: 'var(--ink)',
+            color: 'var(--paper)',
+            border: 'none',
+            opacity: isLoading || !input.trim() ? 0.35 : 1,
+            cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Send
+        </button>
       </div>
     </div>
   );

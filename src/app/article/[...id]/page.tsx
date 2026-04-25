@@ -5,7 +5,7 @@
 
 import { fetchArticle } from '@/lib/guardian';
 import ArticleView from './ArticleView';
-import Header from '@/components/Header';
+import ArticleNav from '@/components/ArticleNav';
 import ErrorState from '@/components/ErrorState';
 
 interface PageProps {
@@ -21,15 +21,21 @@ export default async function ArticlePage({ params }: PageProps) {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load article';
     return (
-      <div className="min-h-screen">
-        <Header backHref="/" backLabel="Back to Feed" />
-        <div className="mx-auto max-w-3xl px-4 py-16">
+      <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
+        <ArticleNav backHref="/" />
+        <div className="mx-auto max-w-3xl px-6 py-16">
           <ErrorState message={message} />
-          {/* Reload-based retry since this is a server component */}
           <div className="mt-4 text-center">
             <a
               href={`/article/${articleId}`}
-              className="text-sm font-body text-primary hover:underline"
+              className="font-ui uppercase"
+              style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.7px',
+                color: 'var(--accent)',
+                textDecoration: 'underline',
+              }}
             >
               Reload page to retry
             </a>

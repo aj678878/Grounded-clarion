@@ -1,29 +1,58 @@
 import type { Metadata } from 'next';
-import { Merriweather, Inter } from 'next/font/google';
+import { Playfair_Display, Libre_Baskerville, Source_Sans_3 } from 'next/font/google';
 import './globals.css';
 
-const merriweather = Merriweather({
+const playfair = Playfair_Display({
   subsets: ['latin'],
   weight: ['400', '700', '900'],
-  variable: '--font-merriweather',
+  style: ['normal', 'italic'],
+  variable: '--font-playfair',
   display: 'swap',
 });
 
-const inter = Inter({
+const baskerville = Libre_Baskerville({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-baskerville',
+  display: 'swap',
+});
+
+const sourceSans = Source_Sans_3({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-source-sans',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Grounded — Understand the news',
+  title: 'Clarion — Truth, Clearly Told',
   description:
-    'Grounded converts Guardian news articles into interactive learning experiences through contextual Q&A.',
+    'Clarion is a broadsheet-style news reader with an AI editor that answers questions about the article you are reading.',
 };
+
+// Inline pre-paint script to set the data-dark attribute before first render,
+// avoiding a flash of light theme for users with dark mode enabled.
+const darkModeBoot = `
+(function () {
+  try {
+    var stored = localStorage.getItem('clarion-theme');
+    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var dark = stored === 'dark' || (stored === null && prefersDark);
+    if (dark) document.documentElement.setAttribute('data-dark', 'true');
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${merriweather.variable} ${inter.variable}`}>
+    <html
+      lang="en"
+      className={`${playfair.variable} ${baskerville.variable} ${sourceSans.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: darkModeBoot }} />
+      </head>
       <body>{children}</body>
     </html>
   );
