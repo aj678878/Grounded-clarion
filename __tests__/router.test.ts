@@ -140,6 +140,8 @@ describe('checkSufficiencyWithDebug — intent parsing', () => {
       reason: 'forgot need_web',
       suggested_queries: [],
       must_cite: false,
+      article_evidence_summary: 'brief summary',
+      would_require_speculation: true,
     });
 
     const out = await checkSufficiencyWithDebug('article', 'q', []);
@@ -162,7 +164,7 @@ describe('checkSufficiencyWithDebug — intent parsing', () => {
     expect(out.result.suggested_queries).toEqual([]);
   });
 
-  it('defaults evidence summary and speculation flag when those fields are missing', async () => {
+  it('falls back to DEFAULT_RESULT when required evidence fields are missing', async () => {
     mockRouterReturn({
       intent: 'answer',
       need_web: true,
@@ -172,8 +174,60 @@ describe('checkSufficiencyWithDebug — intent parsing', () => {
     });
 
     const out = await checkSufficiencyWithDebug('article', 'q', []);
-    expect(out.result.article_evidence_summary).toBe('');
-    expect(out.result.would_require_speculation).toBe(false);
+    expect(out.debug.used_default).toBe(true);
+    expect(out.debug.parse_error).toContain('article_evidence_summary');
+  });
+
+  it('falls back to DEFAULT_RESULT when router output parses as an array fragment', async () => {
+    mockedGenerateJSON.mockResolvedValueOnce({
+      ok: true,
+      data: ['query one', 'query two'] as unknown as Record<string, unknown>,
+      raw: '["query one","query two"]',
+    });
+
+    const out = await checkSufficiencyWithDebug('article', 'q', []);
+    expect(out.debug.used_default).toBe(true);
+    expect(out.debug.parse_error).toContain('array');
+  });
+
+  it('supports a representative polling question as answerable with web search', async () => {
+    mockRouterReturn({
+      intent: 'answer',
+      need_web: true,
+      reason: 'The article mentions the election but not current polling data.',
+      suggested_queries: ['2026 Colombia presidential election polling'],
+      must_cite: true,
+      article_evidence_summary: 'The article names the election and candidates but gives no current polling numbers.',
+      would_require_speculation: true,
+    });
+
+    const out = await checkSufficiencyWithDebug(
+      'article text about an election and candidates',
+      'What is the latest polling data for the 2026 Colombia presidential election?',
+      []
+    );
+    expect(out.result.intent).toBe('answer');
+    expect(out.result.need_web).toBe(true);
+  });
+
+  it('supports a representative background-history question as answerable with web search', async () => {
+    mockRouterReturn({
+      intent: 'answer',
+      need_web: true,
+      reason: 'The article mentions the 2016 peace deal but does not explain its substance.',
+      suggested_queries: ['2016 Colombia peace deal summary FARC'],
+      must_cite: true,
+      article_evidence_summary: 'The article notes that dissident factions rejected the 2016 peace deal but does not describe the deal itself.',
+      would_require_speculation: true,
+    });
+
+    const out = await checkSufficiencyWithDebug(
+      'article text mentioning a rejected peace deal',
+      'What was the 2016 peace deal about?',
+      []
+    );
+    expect(out.result.intent).toBe('answer');
+    expect(out.result.need_web).toBe(true);
   });
 
   it('supports a representative under-supported motive question requiring web search', async () => {
@@ -251,6 +305,7 @@ describe('checkSufficiencyWithDebug — intent parsing', () => {
     const out = await checkSufficiencyWithDebug(longArticle, 'q', []);
     expect(out.debug.article_excerpt_used.length).toBeLessThanOrEqual(3_100);
     expect(out.debug.article_excerpt_used).toContain('article truncated');
+    expect(out.debug.max_tokens).toBe(350);
   });
 
   it('returns DEFAULT_RESULT when generateJSON throws', async () => {

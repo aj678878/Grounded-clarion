@@ -25,11 +25,11 @@ import { insertChatTrace, resetTraceWarning, type ChatTrace } from '@/lib/traces
 import { cannedResponseFor } from '@/lib/canned-responses';
 import {
   hasCitations,
-  hasValidSourcesSection,
-  enforceDeterministicSourcesSection,
   stripExistingSourcesSection,
 } from '@/lib/sources';
 import { ChatRequest } from '@/types';
+
+const ROUTER_RETRYABLE = 'ROUTER_RETRYABLE';
 
 export async function POST(request: NextRequest) {
   const totalStart = Date.now();
@@ -148,6 +148,10 @@ export async function POST(request: NextRequest) {
     routerNeedWeb = routing.need_web;
     routerReason = routing.reason;
     routerSuggestedQueries = routing.suggested_queries;
+
+    if (routingWithDebug.debug.used_default) {
+      throw new Error(ROUTER_RETRYABLE);
+    }
 
     console.log('[chat] Router decision:', {
       intent: routing.intent,
@@ -313,26 +317,10 @@ export async function POST(request: NextRequest) {
     };
     emitFlow('answer_output_initial', debugFlow.answer_output);
 
-    // ---- Step C.2: Deterministic Sources enforcement (when web search was used) ----
-    if (searchCalled && searchSources && searchSources.length > 0) {
-      const before = answerText;
-      answerText = enforceDeterministicSourcesSection(
-        answerText,
-        searchSources.map((s) => ({ title: s.title, url: s.url }))
-      );
-      (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
-        applied: true,
-        sources_count_input: searchSources.length,
-        has_valid_sources_before: hasValidSourcesSection(before),
-        has_valid_sources_after: hasValidSourcesSection(answerText),
-      };
-      (debugFlow.answer_output as Record<string, unknown>).deterministic_citations_applied = true;
-    } else {
-      (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
-        applied: false,
-      };
-      (debugFlow.answer_output as Record<string, unknown>).deterministic_citations_applied = false;
-    }
+    (debugFlow.answer_output as Record<string, unknown>).sources_enforcement = {
+      applied: false,
+    };
+    (debugFlow.answer_output as Record<string, unknown>).deterministic_citations_applied = false;
     (debugFlow.answer_output as Record<string, unknown>).tutor_raw_answer = tutorRawAnswer;
     (debugFlow.answer_output as Record<string, unknown>).final_answer = answerText;
 
@@ -404,7 +392,7 @@ export async function POST(request: NextRequest) {
     // Still persist a trace for the error case
     const latencyTotalMs = Date.now() - totalStart;
     const mappedStatus =
-      message === 'LLM_TIMEOUT' ? 504 : message === 'QUOTA_EXCEEDED' ? 429 : message === 'TOKEN_OVERFLOW' ? 413 : 500;
+      message === ROUTER_RETRYABLE ? 503 : message === 'LLM_TIMEOUT' ? 504 : message === 'QUOTA_EXCEEDED' ? 429 : message === 'TOKEN_OVERFLOW' ? 413 : 500;
     debugFlow.timing = {
       router_ms: latencyRouterMs,
       search_ms: latencySearchMs,
@@ -440,6 +428,9 @@ export async function POST(request: NextRequest) {
       debug_flow: debugFlow,
     }).catch(() => {});
 
+    if (message === ROUTER_RETRYABLE) {
+      return NextResponse.json({ error: ROUTER_RETRYABLE }, { status: 503 });
+    }
     if (message === 'LLM_TIMEOUT') {
       return NextResponse.json({ error: 'LLM_TIMEOUT' }, { status: 504 });
     }

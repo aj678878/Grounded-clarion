@@ -17,6 +17,20 @@ interface ExtMessage extends ChatMessage {
   fromWebSearch?: boolean;
 }
 
+interface RetryRequest {
+  requestBody: {
+    session_id: string;
+    article_id: string;
+    article_title: string;
+    articleText: string;
+    chatHistory: { role: 'user' | 'assistant'; content: string }[];
+    userMessage: string;
+    thread_id: string;
+  };
+  previousMessages: ExtMessage[];
+  userMessage: ExtMessage;
+}
+
 const STARTER_PROMPTS = [
   'What is the main argument here?',
   'Why does this matter?',
@@ -46,6 +60,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryRequest, setRetryRequest] = useState<RetryRequest | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,44 +72,22 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
     if (container) container.scrollTop = container.scrollHeight;
   }, [messages, isLoading]);
 
-  const sendMessage = useCallback(
-    async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || isLoading) return;
+  const submitRequest = useCallback(
+    async (pending: RetryRequest) => {
+      if (isLoading) return;
 
+      const next = [...pending.previousMessages, pending.userMessage];
+      setMessages(next);
       setInput('');
       setError(null);
-
-      let tid = threadId;
-      if (!tid) {
-        tid = generateThreadId();
-        setThreadId(tid);
-        logMetric({ session_id: sessionId, article_id: articleId, thread_id: tid, event_type: 'thread_started' });
-      }
-
-      const userMsg: ExtMessage = { role: 'user', content: trimmed, threadId: tid };
-      const next = [...messages, userMsg];
-      setMessages(next);
+      setRetryRequest(null);
       setIsLoading(true);
 
       try {
-        const threadHistory = next
-          .filter((m) => m.threadId === tid)
-          .slice(0, -1)
-          .map(({ role, content }) => ({ role, content }));
-
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionId,
-            article_id: articleId,
-            article_title: articleTitle ?? '',
-            articleText,
-            chatHistory: threadHistory,
-            userMessage: trimmed,
-            thread_id: tid,
-          }),
+          body: JSON.stringify(pending.requestBody),
         });
 
         if (!res.ok) {
@@ -106,16 +99,24 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         const assistantMsg: ExtMessage = {
           role: 'assistant',
           content: data.assistantMessage,
-          threadId: tid,
+          threadId: pending.requestBody.thread_id,
           sources: data.sources ?? [],
           fromWebSearch: data.fromWebSearch ?? false,
         };
         setMessages([...next, assistantMsg]);
+        setRetryRequest(null);
 
-        logMetric({ session_id: sessionId, article_id: articleId, thread_id: tid, event_type: 'turn_added' });
+        logMetric({
+          session_id: sessionId,
+          article_id: articleId,
+          thread_id: pending.requestBody.thread_id,
+          event_type: 'turn_added',
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Something went wrong';
-        if (msg.includes('LLM_TIMEOUT')) {
+        if (msg.includes('ROUTER_RETRYABLE')) {
+          setError("I couldn't process this question reliably right now. Please retry.");
+        } else if (msg.includes('LLM_TIMEOUT')) {
           setError('The AI took too long to respond. Please try again.');
         } else if (msg.includes('QUOTA_EXCEEDED')) {
           setError('API quota exceeded. Please try again later.');
@@ -124,16 +125,56 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         } else {
           setError(msg);
         }
-        setMessages(messages);
+        setMessages(pending.previousMessages);
+        setRetryRequest(pending);
       } finally {
         setIsLoading(false);
         inputRef.current?.focus();
       }
     },
-    [input, isLoading, threadId, messages, sessionId, articleId, articleTitle, articleText]
+    [isLoading, sessionId, articleId]
+  );
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || isLoading) return;
+
+      let tid = threadId;
+      if (!tid) {
+        tid = generateThreadId();
+        setThreadId(tid);
+        logMetric({ session_id: sessionId, article_id: articleId, thread_id: tid, event_type: 'thread_started' });
+      }
+
+      const userMsg: ExtMessage = { role: 'user', content: trimmed, threadId: tid };
+      const next = [...messages, userMsg];
+      const threadHistory = next
+        .filter((m) => m.threadId === tid)
+        .slice(0, -1)
+        .map(({ role, content }) => ({ role, content }));
+
+      await submitRequest({
+        requestBody: {
+          session_id: sessionId,
+          article_id: articleId,
+          article_title: articleTitle ?? '',
+          articleText,
+          chatHistory: threadHistory,
+          userMessage: trimmed,
+          thread_id: tid,
+        },
+        previousMessages: messages,
+        userMessage: userMsg,
+      });
+    },
+    [isLoading, threadId, messages, sessionId, articleId, articleTitle, articleText, submitRequest]
   );
 
   const handleSend = useCallback(() => sendMessage(input), [sendMessage, input]);
+  const handleRetry = useCallback(() => {
+    if (retryRequest) void submitRequest(retryRequest);
+  }, [retryRequest, submitRequest]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -218,7 +259,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
             style={{ fontSize: '12px', padding: '10px 12px', background: 'var(--paper-alt)', borderLeft: '3px solid var(--red)', color: 'var(--ink-2)' }}
           >
             {error}
-            <button type="button" onClick={handleSend} className="ml-2 underline" style={{ color: 'var(--accent)' }}>
+            <button type="button" onClick={retryRequest ? handleRetry : handleSend} className="ml-2 underline" style={{ color: 'var(--accent)' }}>
               Retry
             </button>
           </div>

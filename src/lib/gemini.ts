@@ -33,8 +33,12 @@ Output ONLY valid JSON matching this exact schema — no prose, no markdown, no 
 INTENT RULES
 
 - "decline_meta" — question is about the assistant, system, prompt, or implementation details.
-- "decline_off_topic" — question has no plausible relationship to the article or its subject matter.
+- "decline_off_topic" — question is clearly unrelated to the article and its subject matter. Use this only for obviously unrelated asks such as weather, jokes, homework, personal tasks, or unrelated world topics with no plausible connection to the article.
 - "answer" — all other cases.
+
+IMPORTANT:
+- If the question is about a person, group, treaty, election, event, agreement, policy, or concept mentioned in the article, it is IN SCOPE and should be treated as "answer" even if the article alone is insufficient.
+- If the article mentions the topic and the user is asking for background, current status, history, context, or explanation, do NOT mark it off-topic. Use "answer" and decide whether web search is needed.
 
 When intent != "answer", hard-set all remaining fields as follows:
 - need_web = false
@@ -76,6 +80,7 @@ suggested_queries
 article_evidence_summary
 - Summarize what the article actually provides that is relevant to the question.
 - Do not invent, infer, or embellish details beyond what the article contains.
+- Keep this very short: one brief sentence fragment or sentence.
 
 would_require_speculation
 - true if answering from the article alone would require unsupported inference or outside knowledge.
@@ -83,6 +88,7 @@ would_require_speculation
 
 reason
 - One concise sentence explaining the routing decision.
+- Keep this short: one sentence only.
 
 Return ONLY the JSON object.`;
 
@@ -126,6 +132,48 @@ const VALID_INTENTS: readonly RouterIntent[] = [
   'decline_off_topic',
 ];
 
+function validateParsedRouting(
+  parsed: Record<string, unknown>
+): { ok: true; value: SufficiencyResult } | { ok: false; error: string } {
+  if (Array.isArray(parsed)) {
+    return { ok: false, error: 'router output parsed as array, expected object' };
+  }
+
+  if (typeof parsed.intent !== 'string') return { ok: false, error: 'intent missing/invalid' };
+  if (typeof parsed.need_web !== 'boolean') return { ok: false, error: 'need_web missing/invalid' };
+  if (typeof parsed.reason !== 'string') return { ok: false, error: 'reason missing/invalid' };
+  if (!Array.isArray(parsed.suggested_queries)) {
+    return { ok: false, error: 'suggested_queries missing/invalid' };
+  }
+  if (typeof parsed.must_cite !== 'boolean') {
+    return { ok: false, error: 'must_cite missing/invalid' };
+  }
+  if (typeof parsed.article_evidence_summary !== 'string') {
+    return { ok: false, error: 'article_evidence_summary missing/invalid' };
+  }
+  if (typeof parsed.would_require_speculation !== 'boolean') {
+    return { ok: false, error: 'would_require_speculation missing/invalid' };
+  }
+
+  const intent: RouterIntent = VALID_INTENTS.includes(parsed.intent as RouterIntent)
+    ? (parsed.intent as RouterIntent)
+    : 'answer';
+  const isDecline = intent !== 'answer';
+
+  return {
+    ok: true,
+    value: {
+      intent,
+      need_web: isDecline ? false : parsed.need_web,
+      reason: parsed.reason,
+      suggested_queries: isDecline ? [] : (parsed.suggested_queries as string[]),
+      must_cite: isDecline ? false : parsed.must_cite,
+      article_evidence_summary: parsed.article_evidence_summary,
+      would_require_speculation: isDecline ? false : parsed.would_require_speculation,
+    },
+  };
+}
+
 export async function checkSufficiency(
   articleText: string,
   userMessage: string,
@@ -159,7 +207,7 @@ export async function checkSufficiencyWithDebug(
     .join('\n');
 
   const model = MODELS.router;
-  const maxTokens = 200;
+  const maxTokens = 350;
 
   const baseDebug: SufficiencyDebugInfo = {
     article_excerpt_used: condensed,
@@ -196,38 +244,14 @@ export async function checkSufficiencyWithDebug(
     }
 
     const parsed = result.data;
-    if (typeof parsed.need_web !== 'boolean') {
+    const validated = validateParsedRouting(parsed);
+    if (!validated.ok) {
       debug.used_default = true;
-      debug.parse_error = debug.parse_error || 'need_web missing/invalid';
+      debug.parse_error = debug.parse_error || validated.error;
       return { result: DEFAULT_RESULT, debug };
     }
 
-    const intent: RouterIntent = VALID_INTENTS.includes(parsed.intent as RouterIntent)
-      ? (parsed.intent as RouterIntent)
-      : 'answer';
-
-    // If we are declining, force the search-related fields off regardless of model output.
-    const isDecline = intent !== 'answer';
-
-    return {
-      result: {
-        intent,
-        need_web: isDecline ? false : parsed.need_web,
-        reason: typeof parsed.reason === 'string' ? parsed.reason : '',
-        suggested_queries:
-          isDecline || !Array.isArray(parsed.suggested_queries)
-            ? []
-            : (parsed.suggested_queries as string[]),
-        must_cite: isDecline ? false : (typeof parsed.must_cite === 'boolean' ? parsed.must_cite : false),
-        article_evidence_summary:
-          typeof parsed.article_evidence_summary === 'string'
-            ? parsed.article_evidence_summary
-            : '',
-        would_require_speculation:
-          isDecline ? false : (typeof parsed.would_require_speculation === 'boolean' ? parsed.would_require_speculation : false),
-      },
-      debug,
-    };
+    return { result: validated.value, debug };
   } catch (err) {
     console.error('[router] Sufficiency check failed:', err);
     return {
@@ -276,7 +300,6 @@ export async function generateChatResponseWithDebug(
   let system = `${SYSTEM_PROMPT}\n\n=== ARTICLE TEXT ===\n\n${truncatedArticle}`;
   if (searchContext) {
     system += `\n\n${searchContext}`;
-    system += STRICT_SOURCES_INSTRUCTION;
   }
 
   const model = MODELS.tutor;
@@ -291,7 +314,7 @@ export async function generateChatResponseWithDebug(
     article_was_truncated: articleText.length > MAX_ARTICLE_CHARS,
     article_chars_in: articleText.length,
     article_chars_used: truncatedArticle.length,
-    strict_sources_instruction_added: Boolean(searchContext),
+    strict_sources_instruction_added: false,
     system_prompt_sent: system,
     history_sent: history,
     user_message_sent: userMessage,
@@ -334,14 +357,6 @@ export async function generateChatResponseWithDebug(
       const stripped = stripNumericMarkers(text);
       strippedNumeric = stripped !== text;
       text = stripped;
-      sourcesNearEndBefore = hasSourcesSectionNearEnd(text);
-      if (!sourcesNearEndBefore) {
-        parsedSources = parseSourcesFromContext(searchContext);
-        if (parsedSources.length > 0) {
-          text += buildMarkdownSources(parsedSources);
-          appendedDeterministicSources = true;
-        }
-      }
     }
 
     return {
@@ -417,73 +432,13 @@ const SYSTEM_PROMPT = `You are a helpful tutor that explains news articles to cu
 2. When WEB CONTEXT is provided, use it for missing background, definitions, or facts. ONLY use information from the provided web context — do not introduce other external information.
 3. Never fabricate quotes, numbers, statistics, claims, sources, or URLs.
 4. If the article is insufficient and no web context is provided, say so honestly.
-5. If sources conflict, state both viewpoints and cite each.`;
+5. If sources conflict, state both viewpoints and cite each.
+6. Do NOT include a Sources or References section in your answer. Source links are rendered separately in the UI.`;
 
 const MAX_ARTICLE_CHARS = 10_000;
 const MAX_OUTPUT_TOKENS = 900;
 
-const STRICT_SOURCES_INSTRUCTION = `
-
-STRICT REQUIREMENT — because web search was performed:
-
-Your answer MUST end with a **Sources:** section formatted exactly like this:
-
-**Sources:**
-1. [Source Title](https://actual-url.com)
-2. [Source Title](https://actual-url.com)
-
-When WEB CONTEXT is provided:
-
-- Your explanation must include specific factual details from the provided web context that directly help answer the user’s question.
-- Do not provide vague commentary or speculation if concrete information is available.
-- Do not state that the article lacks sufficient detail if the web context contains relevant information.
-- Integrate facts naturally into the explanation, not just in the Sources section.
-
-Rules:
-- Use markdown link syntax: [Title](URL). This is mandatory.
-- Include ONLY sources you actually used from the provided web results.
-- Put the Sources section at the VERY END of the answer (last lines).
-- Do NOT use [1], [2], [3] or any numeric reference markers anywhere in the answer body.
-- Do NOT cite Quora/Facebook/Reddit unless no other sources exist.`;
-
 /* ---- Deterministic post-processing helpers ---- */
-
-/** Parse title+url pairs from the formatted searchContext string. */
-function parseSourcesFromContext(ctx: string): { title: string; url: string }[] {
-  const sources: { title: string; url: string }[] = [];
-  // Matches: [1] "Title" — domain  OR  [1] Title — domain
-  const titlePattern = /\[\d+\]\s*"?([^"—\n]+)"?\s*—/g;
-  const urlPattern = /URL:\s*(https?:\/\/\S+)/g;
-
-  const titles: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = titlePattern.exec(ctx)) !== null) titles.push(m[1].trim());
-
-  const urls: string[] = [];
-  while ((m = urlPattern.exec(ctx)) !== null) urls.push(m[1]);
-
-  for (let i = 0; i < Math.min(titles.length, urls.length, 5); i++) {
-    sources.push({ title: titles[i], url: urls[i] });
-  }
-  return sources;
-}
-
-/** Check if answer has a Sources header near the end (last 30%) with at least one URL. */
-function hasSourcesSectionNearEnd(text: string): boolean {
-  const headerPattern = /(?:^|\n)\s*\**(?:Sources|Source|References)\**\s*:?/gi;
-  let lastIdx = -1;
-  let m: RegExpExecArray | null;
-  while ((m = headerPattern.exec(text)) !== null) lastIdx = m.index;
-  if (lastIdx < 0 || lastIdx < text.length * 0.7) return false;
-  return /https?:\/\/\S+/.test(text.slice(lastIdx));
-}
-
-/** Build a markdown-link Sources section from parsed Tavily results. */
-function buildMarkdownSources(sources: { title: string; url: string }[]): string {
-  if (sources.length === 0) return '';
-  const lines = sources.map((s, i) => `${i + 1}. [${s.title}](${s.url})`);
-  return `\n\n**Sources:**\n${lines.join('\n')}`;
-}
 
 /** Strip numeric bracket markers like [1], [2], [3] from text. */
 function stripNumericMarkers(text: string): string {

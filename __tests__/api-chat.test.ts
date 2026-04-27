@@ -77,7 +77,7 @@ function routerResult(overrides: Partial<{
       recent_history_used: '',
       user_prompt: '',
       model: 'test-model',
-      max_tokens: 200,
+      max_tokens: 350,
       raw_output: JSON.stringify(result),
       parse_ok: true,
       parse_error: '',
@@ -160,6 +160,32 @@ describe('POST /api/chat — short-circuit on decline intents', () => {
     expect(mockedSearch).not.toHaveBeenCalled();
     expect(mockedTutor).not.toHaveBeenCalled();
   });
+
+  it('returns a retryable error when the router output is unusable', async () => {
+    mockedRouter.mockResolvedValueOnce({
+      result: routerResult().result,
+      debug: {
+        article_excerpt_used: '',
+        recent_history_used: '',
+        user_prompt: '',
+        model: 'test-model',
+        max_tokens: 350,
+        raw_output: '{"intent":"answer"',
+        parse_ok: false,
+        parse_error: 'need_web missing/invalid',
+        used_default: true,
+      },
+    });
+    mockedIsSearchAvailable.mockReturnValue(true);
+
+    const res = await POST(makeRequest({ ...baseBody, userMessage: 'What does the farc faction want?' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(body.error).toBe('ROUTER_RETRYABLE');
+    expect(mockedSearch).not.toHaveBeenCalled();
+    expect(mockedTutor).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /api/chat — answer path', () => {
@@ -210,6 +236,28 @@ describe('POST /api/chat — answer path', () => {
     );
     expect(body.fromWebSearch).toBe(true);
     expect(body.assistantMessage).not.toContain('Sources:');
+  });
+
+  it('strips a stray Sources section from tutor prose while preserving structured sources', async () => {
+    mockedRouter.mockResolvedValueOnce(
+      routerResult({ need_web: true, suggested_queries: ['fed rate cut'] })
+    );
+    mockedIsSearchAvailable.mockReturnValue(true);
+    mockedSearch.mockResolvedValueOnce({
+      results: [{ title: 'Fed cuts rates', url: 'https://reuters.com/x', source: 'reuters.com', content: 'snippet' }],
+      timedOut: false,
+    } as unknown as Awaited<ReturnType<typeof searchTavily>>);
+    mockedTutor.mockResolvedValueOnce(
+      tutorResult('Grounded answer.\n\nSources:\n- [Fed cuts rates](https://reuters.com/x)')
+    );
+
+    const res = await POST(makeRequest({ ...baseBody, userMessage: 'q' }));
+    const body = await res.json();
+
+    expect(body.assistantMessage).toBe('Grounded answer.');
+    expect(body.sources).toEqual(
+      expect.arrayContaining([expect.objectContaining({ url: 'https://reuters.com/x' })])
+    );
   });
 
   it('skips Tavily when search is unavailable, even if router says need_web=true', async () => {
