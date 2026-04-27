@@ -57,6 +57,8 @@ function routerResult(overrides: Partial<{
   suggested_queries: string[];
   reason: string;
   must_cite: boolean;
+  article_evidence_summary: string;
+  would_require_speculation: boolean;
 }> = {}) {
   const result = {
     intent: 'answer' as const,
@@ -64,6 +66,8 @@ function routerResult(overrides: Partial<{
     reason: 'ok',
     suggested_queries: [] as string[],
     must_cite: false,
+    article_evidence_summary: '',
+    would_require_speculation: false,
     ...overrides,
   };
   return {
