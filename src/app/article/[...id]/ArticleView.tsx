@@ -58,6 +58,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
           style={{
             borderRight: '1px solid var(--border)',
             background: 'var(--paper)',
+            overscrollBehavior: 'contain',
           }}
         >
           <article
@@ -168,7 +169,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
 
         {/* ---- Chat sidebar (right, sticky) ---- */}
         <aside
-          className="hidden md:flex flex-col"
+          className="hidden md:flex flex-col min-h-0 overflow-hidden"
           style={{ background: 'var(--paper-card)' }}
         >
           <ChatPanel

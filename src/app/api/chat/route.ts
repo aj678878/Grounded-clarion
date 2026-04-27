@@ -27,6 +27,7 @@ import {
   hasCitations,
   hasValidSourcesSection,
   enforceDeterministicSourcesSection,
+  stripExistingSourcesSection,
 } from '@/lib/sources';
 import { ChatRequest } from '@/types';
 
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
         console.error('[chat] Trace insert (short-circuit) failed:', err)
       );
 
-      return NextResponse.json({ assistantMessage: answerText });
+      return NextResponse.json({ assistantMessage: answerText, sources: [], fromWebSearch: false });
     }
 
     // ---- Step B: Tavily search (if available + needed) ----
@@ -416,7 +417,18 @@ export async function POST(request: NextRequest) {
       console.error('[chat] Trace insert failed:', err)
     );
 
-    return NextResponse.json({ assistantMessage: answerText });
+    // Strip any embedded Sources block — sources are returned structured so the
+    // client can render them outside the prose bubble.
+    const cleanAnswer = stripExistingSourcesSection(answerText);
+    const responseSources = searchCalled && searchSources
+      ? searchSources.map((s) => ({ title: s.title, url: s.url }))
+      : [];
+
+    return NextResponse.json({
+      assistantMessage: cleanAnswer,
+      sources: responseSources,
+      fromWebSearch: searchCalled,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Chat request failed';
 
