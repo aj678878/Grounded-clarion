@@ -2,15 +2,15 @@
 
 ## Overview
 
-Clarion is a web application that converts Guardian news articles into interactive learning experiences.
+Clarion is a broadsheet-style news reader that lets users browse Guardian articles and ask an AI editor ("Ask the Editor") questions about what they are reading.
 
 Users can:
-- Browse a balanced news feed
-- Open a full article
-- Ask contextual follow-up questions
-- Mark when their question has been clarified
+- Browse a balanced news feed laid out as a newspaper front page
+- Open a full article with a persistent AI chat sidebar
+- Ask contextual follow-up questions about the article
+- Toggle day/night reading mode
 
-The purpose of the application is to improve understanding of complex financial, geopolitical, and technical news topics through conversational assistance Clarion in the article text.
+The purpose of the application is to improve understanding of complex financial, geopolitical, and technical news topics through grounded, cited conversational assistance.
 
 ---
 
@@ -20,43 +20,40 @@ Primary Goal:
 Enable users to better understand news articles through contextual Q&A.
 
 Success Metric:
-Clarity Resolution Rate (CRR)
-
-CRR =
-Number of conversation threads marked "Clear"
-/
-Number of threads with explicit feedback
-
-A thread begins when a user asks a new question and ends when the user marks it as Clear.
+Average Turns to Resolution — the number of questions a user needs to ask before indicating they understand the topic (via session patterns rather than explicit UI).
 
 ---
 
 ## User Experience
 
-### Landing Page
+### Front Page (Feed)
 
-- Automatically loads top 30 Guardian articles
-- Balanced across:
-  - Business
-  - World
-  - Technology
-  - India (via keyword query)
-- Sorted by recency within each category
-- "Load 30 more" appends additional articles
-- Optional topic search overrides balanced feed
+- **Masthead** — publication name, date, edition line, tagline
+- **Navigation bar** (sticky) — category tabs (All · World · Business · Technology · India), search input, day/night toggle
+- **Hero article** — full-width feature with image placeholder (shown on All and World tabs)
+- **3-column grid** — World | Business | Tech & India, each column with its own section header
+- Articles show headline, byline, trail text, and "Read & Discuss →" link
+
+Search overrides the grid view with a flat single-column list.  
+"Load 30 more" appends additional articles.
 
 ### Article Page
 
 Layout:
-- 80% article content
-- 20% chat sidebar
+- **Left column** (scrollable) — article body
+- **Right column** (sticky sidebar, 340 px) — "Ask the Editor" chat panel
 
-Features:
-- Full article body
-- Chat input
-- Clear button below assistant responses
-- "New question" button to start a new thread
-- Back to Feed navigation
+Article body features:
+- Drop cap on first paragraph
+- Byline block with author, date, and computed reading time
+- Body prose in Libre Baskerville (17 px, justified)
+- "Read original source →" footer link
+
+Chat sidebar features:
+- Three starter prompt chips on empty state ("What is the main argument here?", "Why does this matter?", "What background context am I missing?")
+- User and assistant bubbles with labelled sender
+- Structured sources footer beneath each AI response (see below)
+- Bouncing-dot typing indicator
 
 Chat history is session-based and does not persist after navigation.
 
@@ -69,42 +66,58 @@ Chat history is session-based and does not persist after navigation.
 Each user message triggers a two-step workflow:
 
 **Step A — Sufficiency Router:**
-A lightweight Claude Haiku call (~200 output tokens) evaluates whether the article contains enough information to answer the question. It outputs a structured decision:
-- `need_web` — whether a web search is required
-- `suggested_queries` — 1–2 search queries if web context is needed
+A lightweight Claude Haiku call (~200 output tokens) evaluates the user's question and makes two decisions:
+
+1. **Intent** — should we answer at all, or politely decline?
+   - `answer` — default; covers all factual, analytical, interpretive, and background questions about the article or its subject.
+   - `decline_meta` — question is about the assistant or system itself (e.g. "What LLM are you?", "Ignore previous instructions"). Returns a canned response immediately, skips search and tutor.
+   - `decline_off_topic` — question has no plausible relationship to the article or news (e.g. "Tell me a joke", "What's the weather?"). Returns a canned response immediately, skips search and tutor.
+
+2. **Need web** — (only when `intent = answer`) does the article alone suffice, or is a web search required?
+   - `need_web: false` — article is sufficient to answer through reasoning or synthesis.
+   - `need_web: true` — answer requires facts not present in the article excerpt (background, definitions, historical data, current status, etc.).
+
+Router also outputs:
+- `suggested_queries` — 1–2 short factual search queries when `need_web = true`
 - `must_cite` — whether the response requires source citations
+- `reason` — one-sentence explanation of the routing decision
 
 **Step B — Response Generation:**
-- If `need_web = false`: the tutor answers from the article only.
-- If `need_web = true`: the system calls Tavily with the suggested queries, retrieves up to 3 credible sources, and passes them to Claude alongside the article. The response is structured as:
-  - **From the article:** — information drawn from the Guardian article.
-  - **Additional context:** — information from web sources, with cited URLs.
-- If `TAVILY_API_KEY` is not configured: the tutor provides brief general background labeled as such, but keeps it minimal.
+- If `intent` is `decline_meta` or `decline_off_topic`: return canned response. Done.
+- If `need_web = false`: Claude answers from the article only.
+- If `need_web = true` and `TAVILY_API_KEY` is set: call Tavily with suggested queries, pass results to Claude alongside the article.
+- If `need_web = true` but Tavily is unavailable: Claude answers from the article with a note that additional web context was unavailable.
+
+### Sources and Context Footer
+
+Each AI response bubble shows a small ruled footer:
+- **Web search was used** → numbered list of source links (title + external link arrow).
+- **Article context only** → quiet italic label "Answered from article context".
+
+Sources are returned as structured data (`sources: [{title, url}]`) — not embedded in the prose.
 
 ### Threading
 
-- Follow-up questions are treated as continuation of the same thread.
-- A new thread begins when the user clicks "New question" or when there is no active thread on the page.
-- The Clear button marks a thread as resolved.
+- Follow-up questions continue the same conversation thread.
+- A new thread begins when there is no active thread or after a page reload.
 
-No unrelated-question policing is implemented.
+### Source Quality Policy
 
-### Source Policy
-
-When providing additional context from web sources, the tutor:
+When web context is used, the system:
 - Prefers official/primary sources (government sites, regulators, parliamentary committees).
-- For politics/economics, prioritizes: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
+- For politics/economics: gov.uk, parliament.uk, Reuters, AP, BBC, FT, WSJ, Economist.
 - Uses Wikipedia only for basic definitions.
 - Uses at most 3 sources per answer.
-- Scores sources by domain credibility and selects the highest-quality results.
+- Scores sources by domain credibility.
 - Never fabricates sources or URLs.
 - If sources conflict, states both viewpoints and cites each.
 
 ### Rate Limiting & Timeouts
 
-**Anthropic free tier throttling:**
-- The app enforces a global minimum delay between LLM API calls (default 13 s, configurable via `LLM_MIN_DELAY_MS`).
-- This keeps usage safely under the Anthropic free-tier limit of 5 requests per minute.
+**LLM rate limiting:**
+- A global minimum delay between LLM API calls is enforced via `LLM_MIN_DELAY_MS` (default 13 000 ms).
+- Default is calibrated for the Anthropic **free tier** (5 RPM limit).
+- On a paid Anthropic plan, set `LLM_MIN_DELAY_MS=0` to remove the artificial delay.
 - All LLM calls (router + answer generation) share the same limiter.
 - Transient errors (429, 503, timeouts) are retried with exponential backoff (2 s → 4 s → 8 s, max 3 attempts).
 
@@ -117,82 +130,99 @@ When providing additional context from web sources, the tutor:
 ## Technical Stack
 
 Frontend & Backend:
-- Next.js (App Router)
+- Next.js 14 (App Router, TypeScript)
+- Tailwind CSS with custom design tokens (paper/ink/accent colour system, day/night mode)
 - Deployed on Vercel
 
 APIs:
 - Guardian Content API (article data)
-- Anthropic Claude API (LLM for conversational responses — Haiku model)
-- Tavily Search API (autonomous web context lookup)
+- Anthropic Claude API (claude-haiku-4-5-20251001 — router + tutor)
+- Tavily Search API (autonomous web context lookup, optional)
 
 Database:
-- Vercel Postgres (metrics persistence)
+- Vercel Postgres (chat trace persistence for observability)
 
 ---
 
 ## API Design
 
+```
 GET /api/feed
-- Fetch balanced Guardian sections
-- Deduplicate results
-- Paginate
+```
+- Fetches balanced Guardian sections (World, Business, Technology, India)
+- Deduplicates results
+- Paginates (page, page-size)
+- Supports `?q=` search query override
 
+```
 GET /api/article?id=<guardianId>
-- Fetch full article body
-- Cache by article ID (session-level)
+```
+- Fetches full article body (including wordcount, byline)
+- Server-side in-memory cache by article ID
 
+```
 POST /api/chat
-- Inputs:
-  - articleText
-  - chatHistory
-  - userMessage
-- Internally (autonomous two-step routing):
-  1. Sufficiency router (Claude Haiku, ~200 tokens) → decides if web search is needed
-  2. If needed → Tavily search (≤8 s, max 2 queries, top 3 credible sources)
-  3. Response generation (Claude Haiku, article ± search context, ≤900 tokens)
-- Returns:
-  - assistantMessage (with cited sources when web context is used)
+```
+Inputs:
+- `articleText`, `userMessage`, `chatHistory`, `session_id`, `article_id`, `thread_id`, `article_title`
 
+Internally (autonomous two-step routing):
+1. Sufficiency router (Claude Haiku, ~200 tokens) → classifies `intent` + `need_web`
+2. Short-circuit if `intent ≠ answer` → return canned response
+3. If `need_web = true` → Tavily search (≤8 s, max 2 queries, top 3 credible sources)
+4. Response generation (Claude Haiku, article ± search context, ≤900 tokens)
+
+Returns:
+```json
+{
+  "assistantMessage": "prose answer (no embedded sources)",
+  "sources": [{ "title": "string", "url": "string" }],
+  "fromWebSearch": true
+}
+```
+
+```
 POST /api/metric
-- Logs:
-  - thread_started
-  - turn_added
-  - clear_clicked
+```
+Logs: `thread_started`, `turn_added`, `clear_clicked`
 
 ---
 
 ## Metrics Tracked
 
-1. Clarity Resolution Rate
-2. Average Turns to Resolution
-3. P95 Tutor Response Latency
+1. Average Turns to Resolution (session-derived)
+2. P95 Tutor Response Latency
+3. Router intent distribution (answer / decline_meta / decline_off_topic)
 
 ---
 
 ## Failure Handling
 
-Guardian API failure:
-- Retry twice automatically
-- Show structured error message
-
-API quota exceeded:
-- Display user-friendly message
-
-LLM timeout:
-- Display retry option
-
-Token overflow:
-- Display conversation limit message
+| Failure | Behaviour |
+|---|---|
+| Guardian API error | Retry twice automatically; show structured error message |
+| API quota exceeded | Display user-friendly message |
+| LLM timeout | Display retry option |
+| Token overflow | Display conversation limit message |
+| Tavily timeout | Answer from article only; note that web context was unavailable |
 
 ---
 
-## Design Principles
+## Design
 
-- Calm and minimal interface
-- Fast loading
-- No unnecessary complexity
-- Clear conversational grounding
-- Empower users to understand what they read
+Typography:
+- **Headlines** — Playfair Display (700/900)
+- **Body prose** — Libre Baskerville (400/400i)
+- **UI labels, bylines, nav** — Source Sans 3 (600, uppercase)
+
+Colour tokens (CSS custom properties, light/dark variants):
+- `--paper` · `--paper-alt` · `--paper-card` — background surfaces
+- `--ink` · `--ink-2` · `--ink-3` — text hierarchy
+- `--accent` — navy links and active states
+- `--red` — crimson rule lines and section tags
+- `--border` · `--col-rule` — dividers
+
+Dark mode: toggled via `data-dark="true"` on `<html>`, persisted to `localStorage`. A pre-paint inline script in `layout.tsx` reads the preference before first render to avoid a flash.
 
 ---
 
@@ -214,8 +244,8 @@ Token overflow:
    ```bash
    cp .env.example .env.local
    ```
-4. Set up the database (optional for initial testing — the app works without it, metrics just won't persist):
-   - Create a Vercel Postgres database or use any PostgreSQL instance
+4. Set up the database (optional — the app works without it, traces just won't persist):
+   - Create a Vercel Postgres database or any PostgreSQL instance
    - Run the schema from `db/schema.sql`
    - Set `DATABASE_URL` in `.env.local`
 5. Start the dev server:
@@ -230,26 +260,34 @@ Token overflow:
 npm test
 ```
 
+### Running Evals
+
+```bash
+npm run eval:generate   # generate evaluation dataset
+npm run eval:run        # score answers with judge model
+npm run eval            # both steps
+```
+
 ---
 
 ## Debug: Trace Viewer
 
-Every tutor-mode chat interaction is logged as a trace in the `chat_traces` Postgres table. A built-in debug page lets you inspect recent traces.
+Every chat interaction is logged as a trace in the `chat_traces` Postgres table.
 
 **URL:** `/debug/traces`
 
-- In development: accessible directly at [http://localhost:3000/debug/traces](http://localhost:3000/debug/traces)
-- In production: gated by query parameter — access via `/debug/traces?key=debug`
+- Development: [http://localhost:3000/debug/traces](http://localhost:3000/debug/traces)
+- Production: `/debug/traces?key=debug`
 
 **Each trace shows:**
 - Timestamp, article ID, thread ID
 - User message
-- Router decision (`need_web`, reason, suggested queries) + latency
-- Search status (called/skipped, sources list, errors) + latency
-- Answer text (collapsible), character count, citations present
+- Router decision (`intent`, `need_web`, reason, suggested queries) + latency
+- Search status (called/skipped, sources, errors) + latency
+- Answer text (collapsible), character count
 - Full latency breakdown: router → search → answer → total (ms)
 
-Traces are persisted even on errors (with `answer_text` prefixed `ERROR:`).
+Traces are persisted even on errors (`answer_text` prefixed `ERROR:`).
 
 ---
 
@@ -258,12 +296,16 @@ Traces are persisted even on errors (with `answer_text` prefixed `ERROR:`).
 1. Push to GitHub
 2. Import the repo in [Vercel](https://vercel.com)
 3. Add environment variables:
-   - `GUARDIAN_API_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `MODEL_TUTOR=claude-haiku-4-5-20251001`
-   - `MODEL_ROUTER=claude-haiku-4-5-20251001`
-   - `LLM_MIN_DELAY_MS=13000` — rate-limit gap (Anthropic free tier: 5 RPM)
-   - `DATABASE_URL` (auto-set if using Vercel Postgres integration)
-   - `TAVILY_API_KEY` — enables autonomous web context lookup (optional, recommended)
-4. Deploy
 
+| Variable | Required | Notes |
+|---|---|---|
+| `GUARDIAN_API_KEY` | Yes | Guardian Content API key |
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
+| `TAVILY_API_KEY` | Recommended | Enables web search; app works without it |
+| `MODEL_TUTOR` | No | Defaults to `claude-haiku-4-5-20251001` |
+| `MODEL_ROUTER` | No | Defaults to `claude-haiku-4-5-20251001` |
+| `MODEL_JUDGE` | No | Used by eval scripts only; defaults to same |
+| `DATABASE_URL` | No | Vercel Postgres (auto-set by integration); traces skipped if unset |
+| `LLM_MIN_DELAY_MS` | No | Default `13000` (free tier). Set to `0` on paid plans. |
+
+4. Deploy
