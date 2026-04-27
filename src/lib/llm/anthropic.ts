@@ -24,6 +24,7 @@ export interface CallAnthropicOptions {
   messages: LLMMessage[];
   maxTokens?: number;
   temperature?: number;
+  applyRateLimit?: boolean;
 }
 
 /* ---------- Client ---------- */
@@ -32,7 +33,7 @@ export interface CallAnthropicOptions {
  * Call the Anthropic Messages API.
  *
  * - Reads ANTHROPIC_API_KEY from process.env at call time (lazy).
- * - Enforces global rate limit before each request.
+ * - Optionally enforces the global rate limit before each request.
  * - Returns the assistant's text response.
  * - Throws on HTTP errors (include status + body for retry logic).
  */
@@ -43,7 +44,9 @@ export async function callAnthropic(opts: CallAnthropicOptions): Promise<string>
   const model = opts.model ?? MODELS.tutor;
 
   // ---- Rate-limit gate ----
-  await rateLimit();
+  if (opts.applyRateLimit) {
+    await rateLimit();
+  }
 
   // ---- Build request body ----
   const body: Record<string, unknown> = {

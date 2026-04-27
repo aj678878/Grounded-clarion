@@ -32,6 +32,7 @@ import {
   searchTavily,
   isSearchAvailable,
 } from '@/lib/search';
+import { insertChatTrace } from '@/lib/traces';
 import { DECLINE_META, DECLINE_OFF_TOPIC } from '@/lib/canned-responses';
 
 const mockedRouter = checkSufficiencyWithDebug as jest.MockedFunction<
@@ -44,6 +45,7 @@ const mockedSearch = searchTavily as jest.MockedFunction<typeof searchTavily>;
 const mockedIsSearchAvailable = isSearchAvailable as jest.MockedFunction<
   typeof isSearchAvailable
 >;
+const mockedInsertTrace = insertChatTrace as jest.MockedFunction<typeof insertChatTrace>;
 
 function makeRequest(body: Record<string, unknown>) {
   return { json: async () => body } as unknown as Parameters<typeof POST>[0];
@@ -121,6 +123,7 @@ beforeEach(() => {
   mockedTutor.mockReset();
   mockedSearch.mockReset();
   mockedIsSearchAvailable.mockReset();
+  mockedInsertTrace.mockClear();
 });
 
 describe('POST /api/chat — short-circuit on decline intents', () => {
@@ -136,6 +139,7 @@ describe('POST /api/chat — short-circuit on decline intents', () => {
     expect(body.assistantMessage).toBe(DECLINE_OFF_TOPIC);
     expect(mockedSearch).not.toHaveBeenCalled();
     expect(mockedTutor).not.toHaveBeenCalled();
+    expect(mockedInsertTrace).toHaveBeenCalledTimes(1);
     expect(res.status).toBe(200);
   });
 
@@ -169,6 +173,7 @@ describe('POST /api/chat — answer path', () => {
     expect(mockedSearch).not.toHaveBeenCalled();
     expect(mockedTutor).toHaveBeenCalledTimes(1);
     expect(mockedTutor.mock.calls[0][3]).toBe('');
+    expect(mockedInsertTrace).toHaveBeenCalledTimes(1);
   });
 
   it('runs Tavily then tutor with search context when need_web=true', async () => {

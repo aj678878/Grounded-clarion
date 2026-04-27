@@ -407,6 +407,7 @@ async function runRouter(articleText: string, question: string): Promise<RouterR
         system: ROUTER_PROMPT + '\n\nYou MUST respond with ONLY valid JSON. No markdown, no prose, no code fences.',
         messages: [{ role: 'user', content: prompt }],
         maxTokens: 200,
+        applyRateLimit: true,
       }),
     { label: 'router', ...RETRY_OPTS }
   );
@@ -637,6 +638,7 @@ async function generateAnswer(
         system,
         messages: [{ role: 'user', content: question }],
         maxTokens: 900,
+        applyRateLimit: true,
       }),
     { label: 'answer', ...RETRY_OPTS }
   );
@@ -674,6 +676,7 @@ async function runJudgeWithRetry<T extends Record<string, unknown>>(
           system: 'You MUST respond with ONLY valid JSON. No other text.',
           messages: [{ role: 'user', content: promptFn(false) }],
           maxTokens: 400,
+          applyRateLimit: true,
         }),
       { label, ...RETRY_OPTS }
     );
@@ -699,6 +702,7 @@ async function runJudgeWithRetry<T extends Record<string, unknown>>(
           system: 'CRITICAL: Return ONLY valid minified JSON. No markdown. No prose. No code fences. Just a single JSON object.',
           messages: [{ role: 'user', content: promptFn(true) }],
           maxTokens: 400,
+          applyRateLimit: true,
         }),
       { label: `${label}-strict`, ...RETRY_OPTS }
     );

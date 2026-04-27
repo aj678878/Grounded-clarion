@@ -170,6 +170,7 @@ Output strict JSON array of exactly ${QUESTIONS_PER_ARTICLE} objects:
         system: 'You MUST respond with ONLY valid JSON. No markdown, no prose, no code fences.',
         messages: [{ role: 'user', content: prompt }],
         maxTokens: 1000,
+        applyRateLimit: true,
       }),
     { label: `questions for "${article.title.slice(0, 40)}"` }
   );

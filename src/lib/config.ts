@@ -6,9 +6,10 @@
 /* ------------------------------------------------------------------ */
 
 const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const TUTOR_MODEL = process.env.MODEL_TUTOR ?? DEFAULT_MODEL;
 
 export const MODELS = {
-  router: process.env.MODEL_ROUTER ?? DEFAULT_MODEL,
-  tutor: process.env.MODEL_TUTOR ?? DEFAULT_MODEL,
+  router: TUTOR_MODEL,
+  tutor: TUTOR_MODEL,
   judge: process.env.MODEL_JUDGE ?? DEFAULT_MODEL,
 } as const;
