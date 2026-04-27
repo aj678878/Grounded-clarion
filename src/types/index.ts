@@ -12,6 +12,7 @@ export interface GuardianArticle {
   webUrl: string;
   trailText?: string;
   thumbnail?: string;
+  byline?: string;
   category: string; // feed category this article was fetched under
 }
 
@@ -19,7 +20,6 @@ export interface GuardianArticle {
 export interface ArticleDetail extends GuardianArticle {
   bodyHtml: string;
   wordcount?: number;
-  byline?: string;
 }
 
 // Feed API response

@@ -6,10 +6,14 @@ import { GuardianArticle, type Category } from '@/types';
 import Masthead from '@/components/Masthead';
 import NavBar from '@/components/NavBar';
 import SectionRule from '@/components/SectionRule';
-import ImgPlaceholder from '@/components/ImgPlaceholder';
+import Thumbnail from '@/components/Thumbnail';
 import { ColCard, FlatCard } from '@/components/ArticleCard';
 import LoadingState from '@/components/LoadingState';
 import ErrorState from '@/components/ErrorState';
+
+function bylineText(article: GuardianArticle): string {
+  return article.byline?.trim() || 'Clarion Editorial Desk';
+}
 
 export default function FeedPage() {
   const [articles, setArticles] = useState<GuardianArticle[]>([]);
@@ -219,7 +223,7 @@ export default function FeedPage() {
                       color: 'var(--ink-3)',
                     }}
                   >
-                    Clarion Editorial Desk
+                    {bylineText(heroArticle)}
                   </p>
                   {heroArticle.trailText && (
                     <p
@@ -249,7 +253,32 @@ export default function FeedPage() {
                   </Link>
                 </div>
                 <div className="hidden md:block">
-                  <ImgPlaceholder ratio="tall" caption={`${heroArticle.category} · Lead photograph`} />
+                  <figure
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'var(--paper-alt)',
+                    }}
+                  >
+                    <div style={{ aspectRatio: '4 / 5', overflow: 'hidden' }}>
+                      <Thumbnail
+                        src={heroArticle.thumbnail}
+                        alt={heroArticle.webTitle}
+                        sectionName={heroArticle.category}
+                      />
+                    </div>
+                    <figcaption
+                      className="font-ui uppercase px-3 py-1.5"
+                      style={{
+                        fontSize: '10px',
+                        letterSpacing: '0.8px',
+                        color: 'var(--ink-3)',
+                        background: 'var(--paper-card)',
+                        borderTop: '1px solid var(--border)',
+                      }}
+                    >
+                      {heroArticle.category} · Lead photograph
+                    </figcaption>
+                  </figure>
                 </div>
               </section>
             )}

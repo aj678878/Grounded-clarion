@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { GuardianArticle } from '@/types';
-import ImgPlaceholder from './ImgPlaceholder';
+import Thumbnail from './Thumbnail';
 
 interface CardProps {
   article: GuardianArticle;
@@ -18,13 +18,8 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-function bylineFromUrl(url: string): string {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, '');
-    return `Clarion · ${host}`;
-  } catch {
-    return 'Clarion';
-  }
+function bylineText(article: GuardianArticle): string {
+  return article.byline?.trim() || 'Clarion Editorial Desk';
 }
 
 /* ---------- Column card (used inside the 3-col front-page grid) ---------- */
@@ -75,7 +70,7 @@ export function ColCard({ article, index = 1 }: CardProps) {
           marginTop: '8px',
         }}
       >
-        {bylineFromUrl(article.webUrl)}
+        {bylineText(article)}
       </p>
 
       {trail && (
@@ -151,18 +146,18 @@ export function FlatCard({ article, index = 1 }: CardProps) {
           </h3>
         </Link>
 
-        <p
-          className="font-ui uppercase"
-          style={{
-            fontSize: '10.5px',
+      <p
+        className="font-ui uppercase"
+        style={{
+          fontSize: '10.5px',
             fontWeight: 600,
             letterSpacing: '0.7px',
-            color: 'var(--ink-3)',
-            marginTop: '8px',
-          }}
-        >
-          {bylineFromUrl(article.webUrl)}
-        </p>
+          color: 'var(--ink-3)',
+          marginTop: '8px',
+        }}
+      >
+        {bylineText(article)}
+      </p>
 
         {trail && (
           <p
@@ -194,7 +189,32 @@ export function FlatCard({ article, index = 1 }: CardProps) {
       </div>
 
       <div className="hidden sm:block">
-        <ImgPlaceholder ratio="square" caption={article.category.toUpperCase()} />
+        <figure
+          style={{
+            border: '1px solid var(--border)',
+            background: 'var(--paper-alt)',
+          }}
+        >
+          <div style={{ aspectRatio: '1 / 1', overflow: 'hidden' }}>
+            <Thumbnail
+              src={article.thumbnail}
+              alt={article.webTitle}
+              sectionName={article.category}
+            />
+          </div>
+          <figcaption
+            className="font-ui uppercase px-3 py-1.5"
+            style={{
+              fontSize: '10px',
+              letterSpacing: '0.8px',
+              color: 'var(--ink-3)',
+              background: 'var(--paper-card)',
+              borderTop: '1px solid var(--border)',
+            }}
+          >
+            {article.category.toUpperCase()}
+          </figcaption>
+        </figure>
       </div>
     </article>
   );

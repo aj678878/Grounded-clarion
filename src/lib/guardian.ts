@@ -51,6 +51,7 @@ function mapResult(result: any, category: string): GuardianArticle {
     webUrl: result.webUrl,
     trailText: result.fields?.trailText ?? '',
     thumbnail: result.fields?.thumbnail ?? '',
+    byline: result.fields?.byline ?? '',
     category,
   };
 }
@@ -63,14 +64,14 @@ export async function fetchBalancedFeed(page: number = 1): Promise<GuardianArtic
 
   const sectionFetches = SECTIONS.map((section) =>
     fetchWithRetry(
-      `${base}/${section}?page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+      `${base}/${section}?page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail,byline&api-key=${apiKey}`,
       2,
       true // always fresh for feed
     ).then((r) => r.json())
   );
 
   const indiaFetch = fetchWithRetry(
-    `${base}/search?q=${INDIA_QUERY}&page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+    `${base}/search?q=${INDIA_QUERY}&page=${page}&page-size=${PER_SECTION}&order-by=newest&show-fields=trailText,thumbnail,byline&api-key=${apiKey}`,
     2,
     true // always fresh for feed
   ).then((r) => r.json());
@@ -90,7 +91,7 @@ export async function searchFeed(query: string, page: number = 1): Promise<Guard
   const base = getGuardianBaseUrl();
 
   const res = await fetchWithRetry(
-    `${base}/search?q=${encodeURIComponent(query)}&page=${page}&page-size=30&order-by=newest&show-fields=trailText,thumbnail&api-key=${apiKey}`,
+    `${base}/search?q=${encodeURIComponent(query)}&page=${page}&page-size=30&order-by=newest&show-fields=trailText,thumbnail,byline&api-key=${apiKey}`,
     2,
     true // always fresh for feed
   );
