@@ -262,17 +262,17 @@ export default function FeedPage() {
               <section className="grid gap-0 sm:grid-cols-3">
                 <Column
                   label="World"
-                  articles={worldArticles.slice(0, 6)}
+                  articles={worldArticles}
                   borderRight
                 />
                 <Column
                   label="Business"
-                  articles={businessArticles.slice(0, 6)}
+                  articles={businessArticles}
                   borderRight
                 />
                 <Column
                   label="Tech & India"
-                  articles={techIndiaArticles.slice(0, 6)}
+                  articles={techIndiaArticles}
                 />
               </section>
             ) : (
@@ -285,7 +285,7 @@ export default function FeedPage() {
             )}
 
             {/* Load more (only on All) */}
-            {hasMore && activeTab === 'All' && (
+            {hasMore && (
               <div className="mt-10 flex justify-center">
                 <button
                   type="button"
@@ -302,7 +302,7 @@ export default function FeedPage() {
                     opacity: isLoadingMore ? 0.4 : 1,
                   }}
                 >
-                  {isLoadingMore ? 'Loading…' : 'Load 30 more'}
+                  {isLoadingMore ? 'Loading…' : 'Load more'}
                 </button>
               </div>
             )}
