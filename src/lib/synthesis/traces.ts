@@ -11,6 +11,22 @@ import {
 
 let pool: VercelPool | null = null;
 const TRACE_INSERT_TIMEOUT_MS = 2_500;
+const TRACE_READ_TIMEOUT_MS = 4_000;
+
+export type SynthesisTraceInsertReason =
+  | 'ok'
+  | 'no_connection_string'
+  | 'validation_failed'
+  | 'db_timeout'
+  | 'db_error';
+
+export interface SynthesisTraceInsertResult {
+  ok: boolean;
+  reason: SynthesisTraceInsertReason;
+  traceId: number | null;
+  dbTarget: string | null;
+  error: string | null;
+}
 
 function getPool(): VercelPool | null {
   if (pool) return pool;
@@ -54,14 +70,35 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
-export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<number | null> {
+function getDbTargetLabel(): string | null {
+  const connectionString = getPostgresConnectionString();
+  return connectionString ? formatPostgresTargetLabel(connectionString) : null;
+}
+
+export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<SynthesisTraceInsertResult> {
+  const dbTarget = getDbTargetLabel();
   const db = getPool();
-  if (!db) return null;
+  if (!db) {
+    console.warn('[synthesis-traces] Insert skipped: no Postgres connection string configured');
+    return {
+      ok: false,
+      reason: 'no_connection_string',
+      traceId: null,
+      dbTarget,
+      error: 'No Postgres connection string configured',
+    };
+  }
 
   const parsed = synthesisTraceSchema.safeParse(normalizeTraceInput(trace));
   if (!parsed.success) {
     console.error('[synthesis-traces] Invalid trace payload:', parsed.error.flatten());
-    return null;
+    return {
+      ok: false,
+      reason: 'validation_failed',
+      traceId: null,
+      dbTarget,
+      error: JSON.stringify(parsed.error.flatten()),
+    };
   }
 
   try {
@@ -95,16 +132,34 @@ export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<
       'synthesis trace insert'
     );
 
-    return rows[0]?.id ?? null;
+    const traceId = rows[0]?.id ?? null;
+    console.info('[synthesis-traces] Insert completed', {
+      article_id: parsed.data.article_id,
+      traceId,
+      dbTarget,
+    });
+    return {
+      ok: true,
+      reason: 'ok',
+      traceId,
+      dbTarget,
+      error: null,
+    };
   } catch (err) {
-    const cs = getPostgresConnectionString();
+    const message = err instanceof Error ? err.message : String(err);
     console.error('[synthesis-traces] Failed to insert trace:', err);
-    if (cs) {
+    if (dbTarget) {
       console.error(
-        `[synthesis-traces] Run migration db/migrations/20260428_add_synthesis_traces.sql on THIS database: ${formatPostgresTargetLabel(cs)}`
+        `[synthesis-traces] Run migration db/migrations/20260428_add_synthesis_traces.sql on THIS database: ${dbTarget}`
       );
     }
-    return null;
+    return {
+      ok: false,
+      reason: message.includes('timed out') ? 'db_timeout' : 'db_error',
+      traceId: null,
+      dbTarget,
+      error: message,
+    };
   }
 }
 
@@ -114,19 +169,34 @@ export async function getRecentSynthesisTraces(limit = 20): Promise<{
   fetchError: string | null;
   databaseConfigured: boolean;
 }> {
-  if (!getPostgresConnectionString()) {
+  const dbTarget = getDbTargetLabel();
+  if (!dbTarget) {
+    console.warn('[synthesis-traces] Read skipped: no Postgres connection string configured');
     return { traces: [], fetchError: null, databaseConfigured: false };
   }
   const db = getPool();
   if (!db) {
+    console.warn('[synthesis-traces] Read skipped: pool unavailable', { dbTarget });
     return { traces: [], fetchError: null, databaseConfigured: false };
   }
 
   try {
-    const { rows } = await db.query(
-      `SELECT * FROM synthesis_traces ORDER BY created_at DESC LIMIT $1`,
-      [limit]
+    console.info('[synthesis-traces] Reading recent synthesis traces', {
+      limit,
+      dbTarget,
+    });
+    const { rows } = await withTimeout(
+      db.query(
+        `SELECT * FROM synthesis_traces ORDER BY created_at DESC LIMIT $1`,
+        [limit]
+      ),
+      TRACE_READ_TIMEOUT_MS,
+      'synthesis trace read'
     );
+    console.info('[synthesis-traces] Read completed', {
+      rowCount: rows.length,
+      dbTarget,
+    });
     return {
       traces: rows as SynthesisTraceRow[],
       fetchError: null,

@@ -1,4 +1,4 @@
-import { insertSynthesisTrace, buildPhaseRecord } from './traces';
+import { insertSynthesisTrace, buildPhaseRecord, type SynthesisTraceInsertResult } from './traces';
 import { extractEventSignature } from './phases/extract-event';
 import { discoverSources } from './phases/discover-sources';
 import { extractSourceContent } from './phases/extract-content';
@@ -7,9 +7,26 @@ import { updateJob } from './job-store';
 import type { SourceProgress } from './job-store';
 import type { CompareSourcesRequest, SynthesisTraceInput } from './schema';
 
-async function persistTraceAfterCompletion(tracePayload: SynthesisTraceInput): Promise<void> {
+async function persistTraceAfterCompletion(
+  tracePayload: SynthesisTraceInput,
+  meta: { jobId: string; articleId: string }
+): Promise<void> {
+  console.info('[compare-sources] Persisting synthesis trace', {
+    jobId: meta.jobId,
+    article_id: meta.articleId,
+    status: tracePayload.status,
+  });
   try {
-    await insertSynthesisTrace(tracePayload);
+    const result: SynthesisTraceInsertResult = await insertSynthesisTrace(tracePayload);
+    console.info('[compare-sources] Synthesis trace persistence finished', {
+      jobId: meta.jobId,
+      article_id: meta.articleId,
+      ok: result.ok,
+      reason: result.reason,
+      traceId: result.traceId,
+      dbTarget: result.dbTarget,
+      error: result.error,
+    });
   } catch (err) {
     console.error('[compare-sources] Synthesis trace persistence failed:', err);
   }
@@ -64,7 +81,10 @@ export async function runCompareSourcesAsync(
           payload: { phase1: phase1.signature, phase2: phase2.result, phase3: null, phase4: null },
         },
       });
-      await persistTraceAfterCompletion(tracePayload);
+      await persistTraceAfterCompletion(tracePayload, {
+        jobId,
+        articleId: input.article_id,
+      });
       return;
     }
     if (asyncSelectedCount === 1) {
@@ -138,7 +158,10 @@ export async function runCompareSourcesAsync(
         },
       },
     });
-    await persistTraceAfterCompletion(tracePayload);
+    await persistTraceAfterCompletion(tracePayload, {
+      jobId,
+      articleId: input.article_id,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Pipeline failed';
     updateJob(jobId, { status: 'error', error: message });
