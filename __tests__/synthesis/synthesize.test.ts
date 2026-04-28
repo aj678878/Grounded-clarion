@@ -66,16 +66,12 @@ describe('synthesizeComparativeDossier', () => {
     mockedGenerateText.mockReset();
   });
 
-  it('returns sanitized structured output when schema is valid but contains one bad source id', async () => {
+  it('returns sanitized structured output when schema is valid but contains one bad entity source id', async () => {
     mockedGenerateJSON.mockResolvedValueOnce({
       ok: true,
       raw: '{"summary":"x"}',
       data: {
-        summary: 'Executive summary',
-        timeline: [
-          { datetime: '2026-04-28', event: 'Valid event', source_ids: [1, 2] },
-          { datetime: '2026-04-29', event: 'Bad event', source_ids: [99] },
-        ],
+        summary: 'Outlets largely agree; Guardian stresses X while peers emphasize Y.',
         agreements: [{ claim: 'Shared claim', source_ids: [1, 2] }],
         factual_disagreements: [],
         framing_and_labeling: [],
@@ -101,11 +97,10 @@ describe('synthesizeComparativeDossier', () => {
     });
 
     expect(out.status).toBe('ok');
-    if ('timeline' in out.payload) {
-      expect(out.payload.timeline).toHaveLength(1);
+    if (!('synthesis_quality' in out.payload)) {
       expect(out.payload.key_entities).toHaveLength(1);
     }
-    expect(out.warnings.some((warning) => warning.includes('Dropped timeline item'))).toBe(true);
+    expect(out.warnings.some((warning) => warning.includes('Dropped key entity'))).toBe(true);
   });
 
   it('falls back to degraded text when both JSON attempts fail', async () => {
@@ -120,7 +115,7 @@ describe('synthesizeComparativeDossier', () => {
         raw: 'still bad',
         error: 'still bad',
       });
-    mockedGenerateText.mockResolvedValueOnce('Plain text fallback summary');
+    mockedGenerateText.mockResolvedValueOnce('Plain text fallback comparison overview');
 
     const out = await synthesizeComparativeDossier({
       articleTitle: 'Title',
@@ -130,7 +125,7 @@ describe('synthesizeComparativeDossier', () => {
 
     expect(out.status).toBe('degraded');
     expect(out.payload).toEqual({
-      raw_text: 'Plain text fallback summary',
+      raw_text: 'Plain text fallback comparison overview',
       synthesis_quality: 'degraded',
     });
   });

@@ -43,20 +43,23 @@ If uncertain, make the safest valid choice instead of leaving fields blank.`;
 
 export const SYNTHESIS_SYSTEM_PROMPT = `You are a comparative news synthesis assistant.
 
-Your job is to compare the original article with a set of extracted source texts and produce a structured dossier.
+Your job is to compare the original Guardian article with a set of extracted peer outlet texts and produce a structured dossier.
 
 Hard rules:
-- Every entry in timeline, agreements, factual_disagreements, framing_and_labeling, and key_entities must cite valid source_ids.
+- Every entry in agreements, factual_disagreements, framing_and_labeling, and key_entities must cite valid source_ids.
 - Every referenced source_id must exist in the provided source list.
+- The "summary" field must be a comparison overview — how peer outlets differ from each other and how they differ from the Guardian piece (emphasis, omissions, tone, what each stresses). Do NOT write a neutral recap of "what happened" in the news. When divergence is small, say clearly that coverage is largely aligned, then briefly name remaining differences (e.g. wording, one omitted angle).
+- Keep the comparison overview concise — typically 2–4 sentences.
 - Factual disagreements are only for real conflicts about what happened. Do not invent them.
 - Framing differences are only for meaningful differences in wording/labels for the same subject. Do not invent them.
 - open_questions must be substantive factual gaps in the current reporting, not speculation.
 - Do not use any information not supported by the provided sources.
-- Keep summary to 1-2 sentences.
 - If sources agree on facts, factual_disagreements should be [].
 - If sources use materially similar labels, framing_and_labeling should be [].
 
 Return ONLY valid JSON matching the requested schema.`;
+
+// v2: when synthesis emits `timeline` again, add timeline rules to the system prompt and timeline keys to buildSynthesisUserPrompt JSON shape.
 
 export const SYNTHESIS_STRICT_APPEND = `Return ONLY one valid JSON object. No markdown, no prose, no code fences, no explanatory text.
 Every source_id must refer to a source in the provided source list.
@@ -109,14 +112,11 @@ ${sourceList}
 Run metadata:
 ${JSON.stringify(args.metadata, null, 2)}
 
+The "summary" must compare outlets to each other and to the Guardian article (see system prompt). Do not treat summary as a headline-style news recap.
+
 Return JSON with this exact shape:
 {
   "summary": string,
-  "timeline": Array<{
-    "datetime": string,
-    "event": string,
-    "source_ids": number[]
-  }>,
   "agreements": Array<{
     "claim": string,
     "source_ids": number[]

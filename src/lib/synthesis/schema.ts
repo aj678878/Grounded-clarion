@@ -137,6 +137,7 @@ export const contentExtractionResultSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+/** Retained for a future v2 timeline section in the dossier (not emitted by synthesis v1). */
 export const synthesisTimelineItemSchema = z.object({
   datetime: z.string().min(1),
   event: z.string().min(1),
@@ -175,9 +176,9 @@ export const synthesisEntitySchema = z.object({
   source_ids: z.array(z.number().int().positive()).min(1),
 });
 
+// v2: add timeline: z.array(synthesisTimelineItemSchema) when chronological dossier returns.
 export const comparativeSynthesisSchema = z.object({
   summary: z.string().min(1),
-  timeline: z.array(synthesisTimelineItemSchema),
   agreements: z.array(synthesisAgreementSchema),
   factual_disagreements: z.array(synthesisFactualDisagreementSchema),
   framing_and_labeling: z.array(synthesisFramingSchema),

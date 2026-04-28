@@ -32,11 +32,13 @@ function sanitizeSynthesis(
 } {
   const warnings: string[] = [];
 
+  /* v2: timeline sanitization — reinstate when comparativeSynthesisSchema includes timeline again
   const timeline = payload.timeline.filter((item) => {
     const ok = hasOnlyValidSourceIds(item.source_ids, validIds);
     if (!ok) warnings.push(`Dropped timeline item with invalid source_ids: ${item.event.slice(0, 80)}`);
     return ok;
   });
+  */
 
   const agreements = payload.agreements.filter((item) => {
     const ok = hasOnlyValidSourceIds(item.source_ids, validIds);
@@ -65,7 +67,6 @@ function sanitizeSynthesis(
   return {
     payload: {
       ...payload,
-      timeline,
       agreements,
       factual_disagreements,
       framing_and_labeling,
@@ -105,7 +106,7 @@ export async function synthesizeComparativeDossier(input: {
     model: SYNTHESIS_MODELS.synthesis,
     system: SYNTHESIS_SYSTEM_PROMPT,
     user: prompt,
-    maxTokens: 2200,
+    maxTokens: 2000,
     temperature: 0,
   });
 
@@ -115,7 +116,7 @@ export async function synthesizeComparativeDossier(input: {
       model: SYNTHESIS_MODELS.synthesis,
       system: `${SYNTHESIS_SYSTEM_PROMPT}\n\n${SYNTHESIS_STRICT_APPEND}`,
       user: prompt,
-      maxTokens: 2200,
+      maxTokens: 2000,
       temperature: 0,
     });
     candidate = second;
@@ -147,7 +148,7 @@ export async function synthesizeComparativeDossier(input: {
   const rawText = await generateText({
     model: SYNTHESIS_MODELS.synthesis,
     system: SYNTHESIS_SYSTEM_PROMPT,
-    user: `${prompt}\n\nIf you cannot satisfy the schema, provide the best plain-text comparative summary you can.`,
+    user: `${prompt}\n\nIf you cannot satisfy the schema, provide the best plain-text comparison overview you can — how outlets differ from each other and from the Guardian article (not a news recap).`,
     maxTokens: 1800,
     temperature: 0,
   });

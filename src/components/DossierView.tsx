@@ -35,20 +35,6 @@ function isStructured(
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function biasLabel(lean: DiscoveredSource['bias_lean']): string {
-  const MAP: Record<string, string> = {
-    left: 'Left',
-    'lean-left': 'Lean Left',
-    'center-left': 'Centre-Left',
-    center: 'Centre',
-    'center-right': 'Centre-Right',
-    'lean-right': 'Lean Right',
-    right: 'Right',
-    unknown: '',
-  };
-  return MAP[lean] ?? '';
-}
-
 function sourceName(sources: DiscoveredSource[], id: number): string {
   return sources.find((s) => s.source_id === id)?.source_name ?? `Source ${id}`;
 }
@@ -202,36 +188,11 @@ function AccordionSection({
 /*  Section content components                                         */
 /* ------------------------------------------------------------------ */
 
-function Timeline({
-  items,
-  sources,
-}: {
-  items: ComparativeSynthesis['timeline'];
-  sources: DiscoveredSource[];
-}) {
-  if (items.length === 0) return <p className="font-body italic" style={{ fontSize: '11px', color: 'var(--ink-3)' }}>No timeline events recorded.</p>;
-  return (
-    <ol className="space-y-2.5 mt-2">
-      {items.map((item, i) => (
-        <li key={i}>
-          <span
-            className="font-ui block"
-            style={{ fontSize: '9.5px', fontWeight: 700, color: 'var(--ink)', marginBottom: '1px' }}
-          >
-            {item.datetime}
-          </span>
-          <span
-            className="font-body"
-            style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-2)' }}
-          >
-            {item.event}
-            <Cites sources={sources} ids={item.source_ids} />
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
+/*
+ * v2 — Timeline accordion (requires synthesis.timeline in schema + prompts again):
+ *
+ * function Timeline({ items, sources }: { items: SynthesisTimelineItem[]; sources: DiscoveredSource[] }) { ... }
+ */
 
 function Agreements({
   items,
@@ -434,7 +395,6 @@ function SourceList({
       <div className="space-y-3">
         {sources.map((source) => {
           const available = extractedSet.has(source.source_id);
-          const bias = biasLabel(source.bias_lean);
           const pubDate = source.published_at
             ? new Date(source.published_at).toLocaleDateString('en-GB', {
                 day: 'numeric',
@@ -469,14 +429,6 @@ function SourceList({
                   >
                     {source.source_name}
                   </span>
-                  {bias && (
-                    <span
-                      className="font-ui"
-                      style={{ fontSize: '8px', padding: '1px 4px', border: '1px solid var(--border)', color: 'var(--ink-3)' }}
-                    >
-                      {bias}
-                    </span>
-                  )}
                   {!available && (
                     <span
                       className="font-ui"
@@ -545,7 +497,7 @@ export default function DossierView({
   status,
   totalDurationMs,
 }: DossierViewProps) {
-  const [open, setOpen] = useState<Set<string>>(new Set(['timeline']));
+  const [open, setOpen] = useState<Set<string>>(new Set(['agreements']));
 
   function toggle(id: string) {
     setOpen((prev) => {
@@ -563,9 +515,20 @@ export default function DossierView({
       {/* Partial coverage banner */}
       <PartialBanner sourcesUsed={sourcesUsed} sourcesAttempted={sourcesAttempted} />
 
-      {/* Summary — always visible, outside accordion */}
+      {/* Comparison overview — always visible, outside accordion */}
       {structured ? (
         <div className="mb-4">
+          <p
+            className="font-ui uppercase mb-2"
+            style={{
+              fontSize: '10.5px',
+              fontWeight: 600,
+              letterSpacing: '1.8px',
+              color: 'var(--red)',
+            }}
+          >
+            Comparison overview
+          </p>
           <p
             className="font-body italic"
             style={{ fontSize: '12px', lineHeight: 1.65, color: 'var(--ink)' }}
@@ -588,18 +551,13 @@ export default function DossierView({
       {/* Accordion sections */}
       {structured && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
-          <AccordionSection
-            number="01"
-            label="Timeline"
-            preview={`${synthesis.timeline.length} event${synthesis.timeline.length !== 1 ? 's' : ''}`}
-            isOpen={open.has('timeline')}
-            onToggle={() => toggle('timeline')}
-          >
-            <Timeline items={synthesis.timeline} sources={sources} />
-          </AccordionSection>
+          {/*
+          v2 — Timeline accordion:
+          <AccordionSection number="01" label="Timeline" ...><Timeline ... /></AccordionSection>
+          */}
 
           <AccordionSection
-            number="02"
+            number="01"
             label="Points of Agreement"
             preview={`${synthesis.agreements.length} shared fact${synthesis.agreements.length !== 1 ? 's' : ''}`}
             isOpen={open.has('agreements')}
@@ -609,7 +567,7 @@ export default function DossierView({
           </AccordionSection>
 
           <AccordionSection
-            number="03"
+            number="02"
             label="Points of Disagreement"
             preview={`${synthesis.factual_disagreements.length} dispute${synthesis.factual_disagreements.length !== 1 ? 's' : ''}`}
             isOpen={open.has('disagreements')}
@@ -619,7 +577,7 @@ export default function DossierView({
           </AccordionSection>
 
           <AccordionSection
-            number="04"
+            number="03"
             label="Framing Differences"
             preview={`${synthesis.framing_and_labeling.length} subject${synthesis.framing_and_labeling.length !== 1 ? 's' : ''}`}
             isOpen={open.has('framing')}
@@ -629,7 +587,7 @@ export default function DossierView({
           </AccordionSection>
 
           <AccordionSection
-            number="05"
+            number="04"
             label="Key Entities"
             preview={`${synthesis.key_entities.length} entit${synthesis.key_entities.length !== 1 ? 'ies' : 'y'}`}
             isOpen={open.has('entities')}
@@ -639,7 +597,7 @@ export default function DossierView({
           </AccordionSection>
 
           <AccordionSection
-            number="06"
+            number="05"
             label="Open Questions"
             preview={`${synthesis.open_questions.length} question${synthesis.open_questions.length !== 1 ? 's' : ''}`}
             isOpen={open.has('questions')}
