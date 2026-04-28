@@ -63,7 +63,7 @@ Chat history is session-based and does not persist after navigation.
 
 ## Compare Sources
 
-Compare Sources is a **multi-phase synthesis pipeline** that discovers peer outlets covering the same story, extracts article text where possible, and asks Claude to produce a structured **Source Dossier**. The opening **comparison overview** explains how peer coverage differs from the Guardian piece and from each other (not a neutral news recap); when aligned, it says so briefly then notes residual differences. Sections cover points of agreement, factual disagreements, framing differences, key entities, and open questions — with citations tied back to named outlets. **Political lean labels are not shown** in the UI (internal tiering may still use domain-based classification). There is **no chronological timeline** in v1; users can ask **Ask the Editor** for a timeline if needed.
+Compare Sources is a **multi-phase synthesis pipeline** that discovers peer outlets covering the same story, extracts article text where possible, and asks Claude to produce a structured **Source Dossier**. The opening **comparison overview** explains how peer coverage differs from the Guardian piece and from each other (not a neutral news recap); when aligned, it says so briefly then notes residual differences. Sections cover points of agreement, factual disagreements, framing differences, key entities, and open questions — with citations tied back to named outlets. In structured synthesis, the original Guardian article is treated as **source `0`** and peer outlets are **source `1+`**. **Political lean labels are not shown** in the UI (internal tiering may still use domain-based classification). There is **no chronological timeline** in v1; users can ask **Ask the Editor** for a timeline if needed.
 
 ### User experience
 
@@ -72,10 +72,12 @@ Everything happens in the **right-hand sidebar** on the article page. There is *
 1. **Idle** — Full-width "Compare Sources" button (ink outline) with an **ⓘ** tooltip describing duration and scope.
 2. **Running (~10–15 s)** — Button switches to a loading style (accent border). Below it: an indeterminate progress bar, a short **phase label** (event signature → discovery → fetching content → synthesis), and **one row per discovered outlet** with a status dot (queued → spinning while extraction runs → green when usable content exists → red if unavailable).
 3. **Complete** — Button becomes a filled **"View Dossier"** control. If some outlets could not be used (paywall, extraction failure), an amber note shows **"Based on N of M sources"**.
-4. **View Dossier** — Clicking swaps the sidebar body from chat to the dossier view: header **"Source Dossier"** with **N of M sources** and **← Back to Chat**. The dossier shows a **comparison overview** then a **numbered accordion** (Points of Agreement open by default; other sections collapsed with one-line previews). Inline citations use outlet names in brackets, e.g. `[Reuters, AP]`. A **Sources Consulted** block lists each outlet with headline and date.
+4. **View Dossier** — Clicking swaps the sidebar body from chat to the dossier view: header **"Source Dossier"** with **N of M sources** and **← Back to Chat**. The dossier shows a **comparison overview** then a **numbered accordion** (Points of Agreement open by default; other sections collapsed with one-line previews). Inline citations use outlet names in brackets, e.g. `[Guardian, Reuters, AP]`. A **Sources Consulted** block lists the Guardian article plus each peer outlet with headline and date.
 5. **Back to Chat** — Returns to the chat UI; **conversation state is unchanged**. The user can tap **View Dossier** again to re-open the last result for this session.
 
 Compare Sources does **not** use Server-Sent Events. The client **polls** a status endpoint after starting a job (see [API](#compare-sources-api)).
+
+When discovery or extraction yields only limited peer coverage, the job may still complete as a **partial** dossier. In that case the UI shows a comparison based on the usable sources that survived extraction, and the synthesis step may fall back to a plain-text overview if the structured JSON response is not salvageable.
 
 ### Pipeline (server)
 
@@ -86,15 +88,15 @@ The implementation lives under `src/lib/synthesis/`. Phases match `runCompareSou
 | 1 | Event extraction | Derives a searchable event signature from the Guardian article |
 | 2 | Source discovery | Tavily-backed discovery of peer outlets (tiered / bias-aware candidate list) |
 | 3 | Content extraction | Per-URL fetch via Tavily content extraction; optional Apify fallback for supported domains; paywall/snippet handling |
-| 4 | Comparative synthesis | Claude generates structured JSON (or a degraded plain-text fallback) |
+| 4 | Comparative synthesis | Claude generates structured JSON (or a degraded plain-text fallback when structure cannot be validated/salvaged) |
 
-Successful runs **persist a synthesis trace** to Postgres (same observability pattern as chat), when `DATABASE_URL` is configured.
+Successful runs **persist a synthesis trace** to Postgres (same observability pattern as chat), when `DATABASE_URL` is configured. The compare job result is returned to the UI first; trace persistence then completes inside the same Vercel `waitUntil(...)` lifecycle so observability does not block dossier delivery.
 
 ### Async jobs and polling
 
 Long-running work cannot block the HTTP response for tens of seconds. The server uses:
 
-- **`POST /api/compare-sources`** — Validates the request body, creates an **in-memory job** keyed by UUID, starts **`runCompareSourcesAsync`** without awaiting it, and returns **`{ jobId }`** immediately.
+- **`POST /api/compare-sources`** — Validates the request body, creates an **in-memory job** keyed by UUID, starts **`runCompareSourcesAsync`** inside Vercel **`waitUntil(...)`**, and returns **`{ jobId }`** immediately.
 - **`GET /api/compare-sources/status/[jobId]`** — Returns job status: `pending` \| `running` \| `done` \| `error`, current phase index, per-source progress rows, and the **full result payload** when `done`.
 
 The browser **`useCompareSources`** hook (`src/hooks/useCompareSources.ts`) polls the status route every **2 seconds** until completion or failure.
@@ -368,7 +370,7 @@ Note: the eval harness still uses an embedded router/answer prompt path in `scri
 
 ## Debug: Trace Viewer
 
-Every chat interaction is logged as a trace in the `chat_traces` Postgres table.
+Every chat interaction is logged as a trace in the `chat_traces` Postgres table. Compare Sources runs are logged separately in `synthesis_traces`.
 
 **URL:** `/debug/traces`
 
@@ -383,6 +385,7 @@ Every chat interaction is logged as a trace in the `chat_traces` Postgres table.
 - Search status (called/skipped, sources, errors) + latency
 - Answer text (collapsible), character count
 - Full latency breakdown: router → search → answer → total (ms)
+- A second section lists recent **Compare Sources** synthesis traces, including status, source counts, cost estimate, total runtime, and the persisted synthesis payload when available
 
 Traces are persisted even on errors (`answer_text` prefixed `ERROR:`).
 
