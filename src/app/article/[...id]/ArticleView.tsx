@@ -129,6 +129,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
                 <span
                   className="font-ui"
                   style={{ fontSize: '11.5px', color: 'var(--ink-3)' }}
+                  suppressHydrationWarning
                 >
                   {formatDate(article.webPublicationDate)}
                 </span>

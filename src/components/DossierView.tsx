@@ -448,7 +448,11 @@ function SourceList({
                   {source.headline}
                 </a>
                 {pubDate && (
-                  <span className="font-ui" style={{ fontSize: '9px', color: 'var(--ink-3)' }}>
+                  <span
+                    className="font-ui"
+                    style={{ fontSize: '9px', color: 'var(--ink-3)' }}
+                    suppressHydrationWarning
+                  >
                     {pubDate}
                   </span>
                 )}
