@@ -30,6 +30,7 @@ export const compareSourcesRequestSchema = z.object({
   article_content: z.string().min(1),
   article_source_url: z.string().url(),
   article_source_domain: z.string().min(1),
+  article_published_at: z.string().min(1).optional(),
   thread_id: z.string().min(1).optional(),
 });
 

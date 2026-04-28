@@ -465,7 +465,16 @@ function SourceList({
 /*  Degraded fallback                                                  */
 /* ------------------------------------------------------------------ */
 
+function cleanDegradedText(raw: string): string {
+  return raw
+    .replace(/^```(?:json)?\s*\n?/gi, '')
+    .replace(/\n?\s*```\s*$/gi, '')
+    .replace(/^\{[\s\S]*\}$/m, '')
+    .trim() || 'Comparison overview could not be generated.';
+}
+
 function DegradedView({ text }: { text: string }) {
+  const cleaned = cleanDegradedText(text);
   return (
     <div
       className="font-body mb-4"
@@ -479,7 +488,48 @@ function DegradedView({ text }: { text: string }) {
         padding: '10px 12px',
       }}
     >
-      {text}
+      {cleaned}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  No-comparison notice                                               */
+/* ------------------------------------------------------------------ */
+
+function NoComparisonView({ warnings }: { warnings: string[] }) {
+  return (
+    <div style={{ padding: '20px 0' }}>
+      <p
+        className="font-ui uppercase mb-3"
+        style={{
+          fontSize: '10.5px',
+          fontWeight: 600,
+          letterSpacing: '1.8px',
+          color: 'var(--red)',
+        }}
+      >
+        No confident comparison available
+      </p>
+      <p
+        className="font-body"
+        style={{ fontSize: '12px', lineHeight: 1.65, color: 'var(--ink-2)', marginBottom: '12px' }}
+      >
+        We could not find enough reputable peer articles clearly covering the same event within the comparison window. Related coverage was found, but it appears to describe different incidents or time periods.
+      </p>
+      <p
+        className="font-body italic"
+        style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-3)' }}
+      >
+        You can ask the Editor for background context or a broader analysis of this topic.
+      </p>
+      {warnings.length > 0 && (
+        <div className="mt-3 font-ui" style={{ fontSize: '9.5px', color: 'var(--ink-3)' }}>
+          {warnings.map((w, i) => (
+            <p key={i} style={{ marginBottom: '2px' }}>{w}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

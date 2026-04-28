@@ -143,20 +143,51 @@ export async function synthesizeComparativeDossier(input: {
       };
     }
     warnings.push(`Synthesis schema validation failed: ${parsed.error.issues[0]?.message ?? 'unknown error'}`);
+
+    const salvaged = salvagePartialJSON(candidate.data);
+    if (salvaged) {
+      const reParsed = comparativeSynthesisSchema.safeParse(salvaged);
+      if (reParsed.success) {
+        warnings.push('Schema salvage applied (stripped legacy/extra fields)');
+        const sanitized = sanitizeSynthesis(reParsed.data, validSourceIdSet(validSources));
+        warnings.push(...sanitized.warnings);
+        return {
+          status: 'ok',
+          payload: sanitized.payload,
+          warnings,
+          debug: {
+            model: SYNTHESIS_MODELS.synthesis,
+            retried: candidate !== first,
+            raw_json: candidate.raw,
+            salvaged: true,
+          },
+        };
+      }
+    }
   }
 
+  const sourceNames = validSources.map((s) => `${s.source_name} (${s.headline})`).join('; ');
   const rawText = await generateText({
     model: SYNTHESIS_MODELS.synthesis,
-    system: SYNTHESIS_SYSTEM_PROMPT,
-    user: `${prompt}\n\nIf you cannot satisfy the schema, provide the best plain-text comparison overview you can — how outlets differ from each other and from the Guardian article (not a news recap).`,
-    maxTokens: 1800,
+    system: 'You are a comparative news analysis writer. Write only prose, never JSON or code.',
+    user: `Compare the following peer outlet coverage with the Guardian article "${input.articleTitle}".
+
+Sources: ${sourceNames}
+
+Write a concise comparison overview (3–6 sentences). Focus on how outlets differ from each other and from the Guardian article — emphasis, omissions, framing. When coverage is largely aligned, say so and note remaining differences. Do NOT write a neutral recap of the news event itself.`,
+    maxTokens: 800,
     temperature: 0,
   });
+
+  const cleanedText = rawText
+    .replace(/^```(?:json)?\s*\n?/gi, '')
+    .replace(/\n?\s*```\s*$/gi, '')
+    .trim();
 
   return {
     status: 'degraded',
     payload: {
-      raw_text: rawText,
+      raw_text: cleanedText,
       synthesis_quality: 'degraded',
     },
     warnings,
@@ -164,7 +195,26 @@ export async function synthesizeComparativeDossier(input: {
       model: SYNTHESIS_MODELS.synthesis,
       retried: true,
       raw_json: candidate.raw,
-      fallback_text: rawText,
+      fallback_text: cleanedText,
     },
   };
+}
+
+function salvagePartialJSON(data: Record<string, unknown>): Record<string, unknown> | null {
+  try {
+    const patched: Record<string, unknown> = { ...data };
+    delete patched.timeline;
+    const arrayFields = ['agreements', 'factual_disagreements', 'framing_and_labeling', 'key_entities', 'open_questions'];
+    for (const field of arrayFields) {
+      if (!(field in patched) || !Array.isArray(patched[field])) {
+        patched[field] = [];
+      }
+    }
+    if (typeof patched.limited_coverage !== 'boolean') {
+      patched.limited_coverage = true;
+    }
+    return patched;
+  } catch {
+    return null;
+  }
 }

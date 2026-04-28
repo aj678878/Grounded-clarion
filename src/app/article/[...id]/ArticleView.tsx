@@ -178,6 +178,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
             articleText={plainText}
             articleSourceUrl={article.webUrl}
             articleSourceDomain={new URL(article.webUrl).hostname.replace(/^www\./, '')}
+            articlePublishedAt={article.webPublicationDate}
           />
         </aside>
       </div>

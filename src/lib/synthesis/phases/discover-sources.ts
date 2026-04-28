@@ -28,8 +28,21 @@ interface DiscoveryCandidate {
 
 interface MatchClassification {
   usable: boolean;
+  decision: string;
   reasons: string[];
 }
+
+interface RejectionRecord {
+  headline: string;
+  url: string;
+  source_domain: string;
+  published_at: string | null;
+  event_match_score: number;
+  decision: string;
+  reasons: string[];
+}
+
+const PUBLICATION_WINDOW_DAYS = 7;
 
 interface TavilyPassSpec {
   label: string;
@@ -130,9 +143,38 @@ function scoreEventMatch(
   return score;
 }
 
+function isWithinPublicationWindow(
+  candidateDate: string | null,
+  articleDate: string | null,
+  windowDays: number
+): { within: boolean; reason?: string } {
+  if (!articleDate) return { within: true };
+  const articleMs = Date.parse(articleDate);
+  if (!Number.isFinite(articleMs)) return { within: true };
+
+  if (!candidateDate) {
+    return { within: false, reason: 'missing_candidate_published_at' };
+  }
+  const candidateMs = Date.parse(candidateDate);
+  if (!Number.isFinite(candidateMs)) {
+    return { within: false, reason: 'unparseable_candidate_date' };
+  }
+
+  const deltaMs = Math.abs(candidateMs - articleMs);
+  const deltaDays = deltaMs / (1000 * 60 * 60 * 24);
+  if (deltaDays > windowDays) {
+    return {
+      within: false,
+      reason: `outside_publication_window (${Math.round(deltaDays)}d delta, max ${windowDays}d)`,
+    };
+  }
+  return { within: true };
+}
+
 function classifyCandidateMatch(
   candidate: DiscoveryCandidate,
-  signature: EventSignature
+  signature: EventSignature,
+  articlePublishedAt?: string | null
 ): MatchClassification {
   const reasons: string[] = [];
   const combined = `${candidate.headline} ${candidate.snippet}`;
@@ -144,6 +186,28 @@ function classifyCandidateMatch(
 
   if (/\/topic\/|\/topics\//.test(candidate.url) || /times topics|page \d+ of|topic page/i.test(lowerCombined)) {
     reasons.push('topic_or_index_page');
+    return { usable: false, decision: 'topic_or_index_page', reasons };
+  }
+
+  const pubCheck = isWithinPublicationWindow(
+    candidate.published_at,
+    articlePublishedAt ?? null,
+    PUBLICATION_WINDOW_DAYS
+  );
+  if (!pubCheck.within) {
+    if (pubCheck.reason === 'missing_candidate_published_at') {
+      const hasStrongEvidence =
+        primaryActorOverlap &&
+        candidate.event_match_score >= 7 &&
+        (candidate.tier === 'tier1' || candidate.tier === 'tier2_open');
+      if (!hasStrongEvidence) {
+        reasons.push(pubCheck.reason);
+        return { usable: false, decision: 'insufficient_evidence', reasons };
+      }
+    } else {
+      reasons.push(pubCheck.reason!);
+      return { usable: false, decision: 'outside_publication_window', reasons };
+    }
   }
 
   const signatureYears = extractYears(signature.time_window);
@@ -154,27 +218,28 @@ function classifyCandidateMatch(
         signatureYears.map((signatureYear) => Math.abs(candidateYear - signatureYear))
       )
     );
-    if (closestYearDelta > 4) {
-      reasons.push('stale_year_mismatch');
+    if (closestYearDelta > 0) {
+      reasons.push('explicit_date_conflict');
+      return { usable: false, decision: 'explicit_date_conflict', reasons };
     }
   }
 
   if (!primaryActorOverlap && candidate.event_match_score < 5) {
-    reasons.push('missing_primary_actor_for_low_match');
+    reasons.push('missing_primary_actor');
+    return { usable: false, decision: 'missing_primary_actor', reasons };
   }
 
   if (/explainer|what to know|history of|background/i.test(lowerHeadline) && candidate.event_match_score < 7) {
     reasons.push('background_or_explainer');
+    return { usable: false, decision: 'background_or_explainer', reasons };
   }
 
   if (candidate.event_match_score < 5) {
     reasons.push('low_event_match_score');
+    return { usable: false, decision: 'low_event_match_score', reasons };
   }
 
-  return {
-    usable: reasons.length === 0,
-    reasons,
-  };
+  return { usable: true, decision: 'exact_event_match', reasons: [] };
 }
 
 function dedupeByUrl<T extends { url: string }>(rows: T[]): T[] {
@@ -268,45 +333,33 @@ function backfillRemaining(
 
 function splitByMatchStrength(
   candidates: DiscoveryCandidate[],
-  signature: EventSignature
+  signature: EventSignature,
+  articlePublishedAt?: string | null
 ): {
   usable: DiscoveryCandidate[];
-  weak: DiscoveryCandidate[];
-  removed: Array<{
-    headline: string;
-    url: string;
-    source_domain: string;
-    event_match_score: number;
-    reasons: string[];
-  }>;
+  rejected: RejectionRecord[];
 } {
   const usable: DiscoveryCandidate[] = [];
-  const weak: DiscoveryCandidate[] = [];
-  const removed: Array<{
-    headline: string;
-    url: string;
-    source_domain: string;
-    event_match_score: number;
-    reasons: string[];
-  }> = [];
+  const rejected: RejectionRecord[] = [];
 
   for (const candidate of candidates) {
-    const classification = classifyCandidateMatch(candidate, signature);
+    const classification = classifyCandidateMatch(candidate, signature, articlePublishedAt);
     if (classification.usable) {
       usable.push(candidate);
       continue;
     }
-    weak.push(candidate);
-    removed.push({
+    rejected.push({
       headline: candidate.headline,
       url: candidate.url,
       source_domain: candidate.source_domain,
+      published_at: candidate.published_at,
       event_match_score: candidate.event_match_score,
+      decision: classification.decision,
       reasons: classification.reasons,
     });
   }
 
-  return { usable, weak, removed };
+  return { usable, rejected };
 }
 
 function toDiscoveredSources(selected: DiscoveryCandidate[], limit = 6): DiscoveredSource[] {
@@ -367,6 +420,7 @@ async function runTargetedTavilyPasses(signature: EventSignature) {
 export async function discoverSources(input: {
   signature: EventSignature;
   articleSourceDomain: string;
+  articlePublishedAt?: string;
   anthropicFallbackModel?: string;
 }): Promise<{
   result: SourceDiscoveryResult;
@@ -496,7 +550,7 @@ export async function discoverSources(input: {
     sorted = sortCandidates(rawCandidates);
   }
 
-  const { usable, weak, removed } = splitByMatchStrength(sorted, input.signature);
+  const { usable, rejected } = splitByMatchStrength(sorted, input.signature, input.articlePublishedAt);
   const rankedPool = usable;
 
   const taken = new Set<string>();
@@ -509,9 +563,6 @@ export async function discoverSources(input: {
   selected = addRegionalSources(selected, rankedPool, input.signature.regional_focus, taken, usedFamilies);
   selected = [...selected, ...takeByTier(rankedPool, 'tier2_paywall', 1, taken, usedFamilies)];
   selected = backfillRemaining(selected, rankedPool, taken, usedFamilies, 6);
-  if (selected.length < 3 && weak.length > 0) {
-    selected = backfillRemaining(selected, weak, taken, usedFamilies, 6);
-  }
   selected = selected.slice(0, 6);
 
   const finalized = toDiscoveredSources(selected);
@@ -541,10 +592,17 @@ export async function discoverSources(input: {
     result: sourceDiscoveryResultSchema.parse(result),
     debug: {
       ...debug,
-      candidates_after_filtering: sorted,
-      usable_match_candidates: usable,
-      weak_match_candidates: weak,
-      removed_weak_candidates: removed,
+      article_published_at: input.articlePublishedAt ?? null,
+      publication_window_days: PUBLICATION_WINDOW_DAYS,
+      total_candidates_before_gating: sorted.length,
+      accepted_exact_matches: usable.map((c) => ({
+        headline: c.headline,
+        url: c.url,
+        source_domain: c.source_domain,
+        published_at: c.published_at,
+        event_match_score: c.event_match_score,
+      })),
+      rejected_candidates: rejected,
       selected_before_rebalance: finalized,
       selected_after_rebalance: rebalanced.selected,
       rebalance_warning: rebalanced.warning,

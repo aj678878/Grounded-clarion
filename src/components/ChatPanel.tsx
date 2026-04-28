@@ -22,6 +22,7 @@ interface ChatPanelProps {
   articleText: string;
   articleSourceUrl: string;
   articleSourceDomain: string;
+  articlePublishedAt?: string;
 }
 
 interface ExtMessage extends ChatMessage {
@@ -333,6 +334,7 @@ export default function ChatPanel({
   articleText,
   articleSourceUrl,
   articleSourceDomain,
+  articlePublishedAt,
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<ExtMessage[]>([]);
   const [input, setInput] = useState('');
@@ -476,8 +478,9 @@ export default function ChatPanel({
       article_content: articleText,
       article_source_url: articleSourceUrl,
       article_source_domain: articleSourceDomain,
+      article_published_at: articlePublishedAt,
     });
-  }, [compare, articleId, articleTitle, articleText, articleSourceUrl, articleSourceDomain]);
+  }, [compare, articleId, articleTitle, articleText, articleSourceUrl, articleSourceDomain, articlePublishedAt]);
 
   const handleViewDossier = useCallback(() => {
     setSidebarView('dossier');
@@ -489,9 +492,12 @@ export default function ChatPanel({
 
   /* ---- Derive dossier props from result ---- */
 
+  const isNoComparison = compare.result?.status === 'no_comparison';
+
   const dossierProps = useMemo(() => {
     if (!compare.result) return null;
     const r = compare.result;
+    if (r.status === 'no_comparison' || !r.payload.phase3 || !r.payload.phase4) return null;
     const sources = r.payload.phase2.selected_sources as DiscoveredSource[];
     const extractedSourceIds = r.payload.phase3.extracted_sources.map((s: { source_id: number }) => s.source_id);
     return {
@@ -506,6 +512,54 @@ export default function ChatPanel({
   }, [compare.result]);
 
   const showStarter = messages.length === 0 && !isLoading;
+
+  /* ================================================================ */
+  /*  NO-COMPARISON VIEW                                               */
+  /* ================================================================ */
+
+  if (sidebarView === 'dossier' && isNoComparison && compare.result) {
+    return (
+      <div className="flex h-full flex-col" style={{ background: 'var(--paper-card)' }}>
+        <DossierHeader
+          sourcesUsed={0}
+          sourcesAttempted={compare.result.payload.phase2.candidates_considered ?? 0}
+          onBack={handleBackToChat}
+        />
+        <div
+          className="flex-1 min-h-0 overflow-y-auto chat-scroll"
+          style={{ padding: '14px', overscrollBehavior: 'contain' }}
+        >
+          <div style={{ padding: '20px 0' }}>
+            <p
+              className="font-ui uppercase mb-3"
+              style={{ fontSize: '10.5px', fontWeight: 600, letterSpacing: '1.8px', color: 'var(--red)' }}
+            >
+              No confident comparison available
+            </p>
+            <p
+              className="font-body"
+              style={{ fontSize: '12px', lineHeight: 1.65, color: 'var(--ink-2)', marginBottom: '12px' }}
+            >
+              We could not find enough reputable peer articles clearly covering the same event within the comparison window. Related coverage was found, but it appears to describe different incidents or time periods.
+            </p>
+            <p
+              className="font-body italic"
+              style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-3)' }}
+            >
+              You can ask the Editor for background context or a broader analysis of this topic.
+            </p>
+            {compare.result.warnings.length > 0 && (
+              <div className="mt-3 font-ui" style={{ fontSize: '9.5px', color: 'var(--ink-3)' }}>
+                {compare.result.warnings.map((w: string, i: number) => (
+                  <p key={i} style={{ marginBottom: '2px' }}>{w}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ================================================================ */
   /*  DOSSIER VIEW                                                     */
@@ -554,8 +608,8 @@ export default function ChatPanel({
         currentPhase={compare.currentPhase}
         sourceStatuses={compare.sourceStatuses}
         isPartial={compare.result?.status === 'partial'}
-        sourcesUsed={compare.result?.payload.phase3.sources_used ?? 0}
-        sourcesAttempted={compare.result?.payload.phase3.sources_attempted ?? 0}
+        sourcesUsed={compare.result?.payload.phase3?.sources_used ?? 0}
+        sourcesAttempted={compare.result?.payload.phase3?.sources_attempted ?? 0}
         onStart={handleStartCompare}
         onViewDossier={handleViewDossier}
         onRetry={() => { compare.retry(); }}

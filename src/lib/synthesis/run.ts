@@ -48,9 +48,36 @@ export async function runCompareSources(input: CompareSourcesRequest): Promise<{
   const phase2 = await discoverSources({
     signature: phase1.signature,
     articleSourceDomain: input.article_source_domain,
+    articlePublishedAt: input.article_published_at,
   });
   phases.push(buildPhaseRecord('source_discovery', phase2.result.status === 'ok' ? 'ok' : phase2.result.status === 'limited_coverage' ? 'degraded' : 'error', Date.now() - phase2Start, { ...phase2.debug }));
   warnings.push(...phase2.result.warnings);
+
+  const selectedCount = phase2.result.selected_sources.length;
+  if (selectedCount === 0) {
+    warnings.push('No peer sources passed the relevance gate within the comparison window.');
+    cost_usd_estimate = phases.reduce((sum, phase) => sum + phase.duration_ms * 0.00001, 0);
+    const tracePayload: SynthesisTraceInput = {
+      article_id: input.article_id, thread_id: input.thread_id ?? null,
+      status: 'no_comparison', phases, cost_usd_estimate,
+      total_duration_ms: Date.now() - started,
+      bias_diversity_warning: phase2.result.bias_diversity_warning,
+      sources_attempted: phase2.result.candidates_considered, sources_used: 0,
+    };
+    const traceId = await insertSynthesisTrace(tracePayload);
+    return {
+      articleTitle: input.article_title, phases,
+      status: 'no_comparison', warnings, cost_usd_estimate,
+      total_duration_ms: Date.now() - started,
+      payload: { phase1: phase1.signature, phase2: phase2.result, phase3: null, phase4: null },
+      trace_id: traceId,
+    };
+  }
+  if (selectedCount === 1) {
+    warnings.push('Only 1 matching source found — comparison is limited to a single peer outlet.');
+  } else if (selectedCount === 2) {
+    warnings.push('Limited comparison — only 2 matching sources found.');
+  }
 
   const phase3Start = Date.now();
   const phase3 = await extractSourceContent({
@@ -129,9 +156,39 @@ export async function runCompareSourcesAsync(
     const phase2 = await discoverSources({
       signature: phase1.signature,
       articleSourceDomain: input.article_source_domain,
+      articlePublishedAt: input.article_published_at,
     });
     phases.push(buildPhaseRecord('source_discovery', phase2.result.status === 'ok' ? 'ok' : phase2.result.status === 'limited_coverage' ? 'degraded' : 'error', Date.now() - phase2Start, { ...phase2.debug }));
     warnings.push(...phase2.result.warnings);
+
+    const asyncSelectedCount = phase2.result.selected_sources.length;
+    if (asyncSelectedCount === 0) {
+      warnings.push('No peer sources passed the relevance gate within the comparison window.');
+      const cost_usd_estimate = phases.reduce((sum, phase) => sum + phase.duration_ms * 0.00001, 0);
+      const tracePayload: SynthesisTraceInput = {
+        article_id: input.article_id, thread_id: input.thread_id ?? null,
+        status: 'no_comparison', phases, cost_usd_estimate,
+        total_duration_ms: Date.now() - started,
+        bias_diversity_warning: phase2.result.bias_diversity_warning,
+        sources_attempted: phase2.result.candidates_considered, sources_used: 0,
+      };
+      await insertSynthesisTrace(tracePayload);
+      updateJob(jobId, {
+        status: 'done',
+        result: {
+          articleTitle: input.article_title, phases,
+          status: 'no_comparison', warnings, cost_usd_estimate,
+          total_duration_ms: Date.now() - started,
+          payload: { phase1: phase1.signature, phase2: phase2.result, phase3: null, phase4: null },
+        },
+      });
+      return;
+    }
+    if (asyncSelectedCount === 1) {
+      warnings.push('Only 1 matching source found — comparison is limited to a single peer outlet.');
+    } else if (asyncSelectedCount === 2) {
+      warnings.push('Limited comparison — only 2 matching sources found.');
+    }
 
     const sourceStatuses: SourceProgress[] = phase2.result.selected_sources.map((s) => ({
       source_id: s.source_id,

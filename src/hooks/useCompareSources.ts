@@ -17,13 +17,13 @@ export interface CompareResult {
   total_duration_ms: number;
   payload: {
     phase1: unknown;
-    phase2: { selected_sources: Array<{ source_id: number; source_name: string; source_domain: string; headline: string; url: string; published_at: string | null; snippet: string; tier: string; bias_lean: string }> };
+    phase2: { selected_sources: Array<{ source_id: number; source_name: string; source_domain: string; headline: string; url: string; published_at: string | null; snippet: string; tier: string; bias_lean: string }>; candidates_considered?: number };
     phase3: {
       sources_attempted: number;
       sources_used: number;
       extracted_sources: Array<{ source_id: number }>;
-    };
-    phase4: unknown;
+    } | null;
+    phase4: unknown | null;
   };
 }
 
@@ -91,6 +91,7 @@ export function useCompareSources() {
       article_content: string;
       article_source_url: string;
       article_source_domain: string;
+      article_published_at?: string;
     }) => {
       stopPolling();
       setState('loading');
