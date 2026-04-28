@@ -9,6 +9,10 @@ jest.mock('@/lib/synthesis/providers/anthropic-search', () => ({
 import { discoverSources } from '@/lib/synthesis/phases/discover-sources';
 import { searchTavilyForDiscovery } from '@/lib/synthesis/providers/tavily-client';
 import { searchAnthropicWebForDiscovery } from '@/lib/synthesis/providers/anthropic-search';
+import type {
+  TavilyDiscoveryCandidate,
+  TavilyDiscoveryResult,
+} from '@/lib/synthesis/providers/tavily-client';
 
 const mockedTavily = searchTavilyForDiscovery as jest.MockedFunction<typeof searchTavilyForDiscovery>;
 const mockedAnthropic = searchAnthropicWebForDiscovery as jest.MockedFunction<typeof searchAnthropicWebForDiscovery>;
@@ -22,7 +26,7 @@ const signature = {
   regional_focus: 'south_america' as const,
 };
 
-function okTavily(candidates: Array<Record<string, unknown>>) {
+function okTavily(candidates: TavilyDiscoveryCandidate[]): TavilyDiscoveryResult {
   return {
     ok: true,
     timedOut: false,

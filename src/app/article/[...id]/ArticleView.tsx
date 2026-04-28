@@ -165,7 +165,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
                   Read original source →
                 </a>
                 <a
-                  href={`/article/${article.id}/compare-sources`}
+                  href={`/compare-sources/${article.id}`}
                   className="font-ui uppercase"
                   style={{
                     fontSize: '11px',
