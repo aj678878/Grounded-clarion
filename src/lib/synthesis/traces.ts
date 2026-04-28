@@ -1,5 +1,9 @@
 import { createPool, type VercelPool } from '@vercel/postgres';
 import {
+  formatPostgresTargetLabel,
+  getPostgresConnectionString,
+} from '@/lib/postgres-connection';
+import {
   synthesisTraceSchema,
   type SynthesisTraceInput,
   type SynthesisPhaseRecord,
@@ -9,7 +13,7 @@ let pool: VercelPool | null = null;
 
 function getPool(): VercelPool | null {
   if (pool) return pool;
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = getPostgresConnectionString();
   if (!connectionString) return null;
   pool = createPool({ connectionString });
   return pool;
@@ -69,7 +73,13 @@ export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<
 
     return rows[0]?.id ?? null;
   } catch (err) {
+    const cs = getPostgresConnectionString();
     console.error('[synthesis-traces] Failed to insert trace:', err);
+    if (cs) {
+      console.error(
+        `[synthesis-traces] Run migration db/migrations/20260428_add_synthesis_traces.sql on THIS database: ${formatPostgresTargetLabel(cs)}`
+      );
+    }
     return null;
   }
 }
@@ -80,7 +90,7 @@ export async function getRecentSynthesisTraces(limit = 20): Promise<{
   fetchError: string | null;
   databaseConfigured: boolean;
 }> {
-  if (!process.env.DATABASE_URL) {
+  if (!getPostgresConnectionString()) {
     return { traces: [], fetchError: null, databaseConfigured: false };
   }
   const db = getPool();

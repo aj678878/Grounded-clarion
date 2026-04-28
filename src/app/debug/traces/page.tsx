@@ -67,7 +67,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
         variant: 'amber' as const,
         title: 'Trace database not configured',
         body:
-          'DATABASE_URL is not available to this handler, so Postgres-backed traces cannot be loaded. Configure it locally (`.env.local`) or in Vercel project settings for preview/production.',
+          'DATABASE_URL / POSTGRES_URL is not available to this handler, so Postgres-backed traces cannot be loaded. Configure it locally (`.env.local`) or in Vercel project settings for preview/production.',
       };
     }
     if (synthesis.fetchError) {
