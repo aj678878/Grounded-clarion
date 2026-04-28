@@ -5,9 +5,10 @@ export const runtime = 'nodejs';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
-  const job = getJob(params.jobId);
+  const { jobId } = await params;
+  const job = getJob(jobId);
 
   if (!job) {
     return NextResponse.json(
