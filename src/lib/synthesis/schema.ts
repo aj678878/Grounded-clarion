@@ -152,25 +152,10 @@ export const synthesisAgreementSchema = z.object({
   source_ids: z.array(z.number().int().nonnegative()).min(2),
 });
 
-export const synthesisPositionSchema = z.object({
-  source_id: z.number().int().nonnegative(),
-  position: z.string().min(1),
-});
-
-export const synthesisFactualDisagreementSchema = z.object({
+export const synthesisDifferenceSchema = z.object({
   topic: z.string().min(1),
-  positions: z.array(synthesisPositionSchema).min(2),
-});
-
-export const synthesisLabelSchema = z.object({
-  source_id: z.number().int().nonnegative(),
-  label: z.string().min(1),
-});
-
-export const synthesisFramingSchema = z.object({
-  subject: z.string().min(1),
-  labels_used: z.array(synthesisLabelSchema).min(2),
-  interpretation: z.string().min(1),
+  summary: z.string().min(1),
+  source_ids: z.array(z.number().int().nonnegative()).min(2),
 });
 
 export const synthesisEntitySchema = z.object({
@@ -183,8 +168,7 @@ export const synthesisEntitySchema = z.object({
 export const comparativeSynthesisSchema = z.object({
   summary: z.string().min(1),
   agreements: z.array(synthesisAgreementSchema),
-  factual_disagreements: z.array(synthesisFactualDisagreementSchema),
-  framing_and_labeling: z.array(synthesisFramingSchema),
+  differences: z.array(synthesisDifferenceSchema),
   key_entities: z.array(synthesisEntitySchema),
   open_questions: z.array(z.string().min(1)),
   limited_coverage: z.boolean(),

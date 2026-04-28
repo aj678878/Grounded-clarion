@@ -220,11 +220,11 @@ function Agreements({
   );
 }
 
-function FactualDisagreements({
+function Differences({
   items,
   sources,
 }: {
-  items: ComparativeSynthesis['factual_disagreements'];
+  items: ComparativeSynthesis['differences'];
   sources: DiscoveredSource[];
 }) {
   if (items.length === 0) return null;
@@ -238,75 +238,12 @@ function FactualDisagreements({
           >
             {item.topic}
           </p>
-          <ul
-            className="space-y-1 pl-2.5"
-            style={{ borderLeft: '2px solid var(--border)' }}
-          >
-            {item.positions.map((pos, j) => (
-              <li
-                key={j}
-                className="font-body"
-                style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-2)' }}
-              >
-                <span
-                  className="font-ui"
-                  style={{ fontSize: '9.5px', fontWeight: 600, color: 'var(--ink-3)', marginRight: '4px' }}
-                >
-                  {sourceName(sources, pos.source_id)}:
-                </span>
-                {pos.position}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FramingAndLabelling({
-  items,
-  sources,
-}: {
-  items: ComparativeSynthesis['framing_and_labeling'];
-  sources: DiscoveredSource[];
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="space-y-4 mt-2">
-      {items.map((item, i) => (
-        <div key={i}>
           <p
-            className="font-ui uppercase mb-1.5"
-            style={{ fontSize: '9px', fontWeight: 600, letterSpacing: '1px', color: 'var(--ink-2)' }}
+            className="font-body"
+            style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-2)' }}
           >
-            {item.subject}
-          </p>
-          <ul
-            className="space-y-1 pl-2.5 mb-1.5"
-            style={{ borderLeft: '2px solid var(--border)' }}
-          >
-            {item.labels_used.map((lbl, j) => (
-              <li
-                key={j}
-                className="font-body"
-                style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--ink-2)' }}
-              >
-                <span
-                  className="font-ui"
-                  style={{ fontSize: '9.5px', fontWeight: 600, color: 'var(--ink-3)', marginRight: '4px' }}
-                >
-                  {sourceName(sources, lbl.source_id)}:
-                </span>
-                &ldquo;{lbl.label}&rdquo;
-              </li>
-            ))}
-          </ul>
-          <p
-            className="font-body italic"
-            style={{ fontSize: '10.5px', color: 'var(--ink-3)', lineHeight: 1.5 }}
-          >
-            {item.interpretation}
+            {item.summary}
+            <Cites sources={sources} ids={item.source_ids} />
           </p>
         </div>
       ))}
@@ -622,26 +559,16 @@ export default function DossierView({
 
           <AccordionSection
             number="02"
-            label="Points of Disagreement"
-            preview={`${synthesis.factual_disagreements.length} dispute${synthesis.factual_disagreements.length !== 1 ? 's' : ''}`}
+            label="Key Differences"
+            preview={`${synthesis.differences.length} difference${synthesis.differences.length !== 1 ? 's' : ''}`}
             isOpen={open.has('disagreements')}
             onToggle={() => toggle('disagreements')}
           >
-            <FactualDisagreements items={synthesis.factual_disagreements} sources={sources} />
+            <Differences items={synthesis.differences} sources={sources} />
           </AccordionSection>
 
           <AccordionSection
             number="03"
-            label="Framing Differences"
-            preview={`${synthesis.framing_and_labeling.length} subject${synthesis.framing_and_labeling.length !== 1 ? 's' : ''}`}
-            isOpen={open.has('framing')}
-            onToggle={() => toggle('framing')}
-          >
-            <FramingAndLabelling items={synthesis.framing_and_labeling} sources={sources} />
-          </AccordionSection>
-
-          <AccordionSection
-            number="04"
             label="Key Entities"
             preview={`${synthesis.key_entities.length} entit${synthesis.key_entities.length !== 1 ? 'ies' : 'y'}`}
             isOpen={open.has('entities')}
@@ -651,7 +578,7 @@ export default function DossierView({
           </AccordionSection>
 
           <AccordionSection
-            number="05"
+            number="04"
             label="Open Questions"
             preview={`${synthesis.open_questions.length} question${synthesis.open_questions.length !== 1 ? 's' : ''}`}
             isOpen={open.has('questions')}

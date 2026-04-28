@@ -47,15 +47,9 @@ function sanitizeSynthesis(
     return ok;
   });
 
-  const factual_disagreements = payload.factual_disagreements.filter((item) => {
-    const ok = item.positions.every((position) => validIds.has(position.source_id));
-    if (!ok) warnings.push(`Dropped factual disagreement with invalid source_ids: ${item.topic.slice(0, 80)}`);
-    return ok;
-  });
-
-  const framing_and_labeling = payload.framing_and_labeling.filter((item) => {
-    const ok = item.labels_used.every((label) => validIds.has(label.source_id));
-    if (!ok) warnings.push(`Dropped framing item with invalid source_ids: ${item.subject.slice(0, 80)}`);
+  const differences = payload.differences.filter((item) => {
+    const ok = hasOnlyValidSourceIds(item.source_ids, validIds);
+    if (!ok) warnings.push(`Dropped difference with invalid source_ids: ${item.topic.slice(0, 80)}`);
     return ok;
   });
 
@@ -69,8 +63,7 @@ function sanitizeSynthesis(
     payload: {
       ...payload,
       agreements,
-      factual_disagreements,
-      framing_and_labeling,
+      differences,
       key_entities,
     },
     warnings,
@@ -204,7 +197,71 @@ function salvagePartialJSON(data: Record<string, unknown>): Record<string, unkno
   try {
     const patched: Record<string, unknown> = { ...data };
     delete patched.timeline;
-    const arrayFields = ['agreements', 'factual_disagreements', 'framing_and_labeling', 'key_entities', 'open_questions'];
+    const differences: Array<Record<string, unknown>> = [];
+
+    if (Array.isArray(patched.factual_disagreements)) {
+      for (const item of patched.factual_disagreements) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Record<string, unknown>;
+        const positions = Array.isArray(row.positions) ? row.positions as Array<Record<string, unknown>> : [];
+        const source_ids = positions
+          .map((position) => position?.source_id)
+          .filter((sourceId): sourceId is number => Number.isInteger(sourceId));
+        const summary = positions
+          .map((position) => {
+            const sourceId = position?.source_id;
+            const text = position?.position;
+            return Number.isInteger(sourceId) && typeof text === 'string'
+              ? `Source ${sourceId}: ${text}`
+              : null;
+          })
+          .filter((value): value is string => Boolean(value))
+          .join(' | ');
+        if (typeof row.topic === 'string' && summary) {
+          differences.push({
+            topic: row.topic,
+            summary,
+            source_ids,
+          });
+        }
+      }
+    }
+
+    if (Array.isArray(patched.framing_and_labeling)) {
+      for (const item of patched.framing_and_labeling) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as Record<string, unknown>;
+        const labelsUsed = Array.isArray(row.labels_used) ? row.labels_used as Array<Record<string, unknown>> : [];
+        const source_ids = labelsUsed
+          .map((label) => label?.source_id)
+          .filter((sourceId): sourceId is number => Number.isInteger(sourceId));
+        const labelsSummary = labelsUsed
+          .map((label) => {
+            const sourceId = label?.source_id;
+            const text = label?.label;
+            return Number.isInteger(sourceId) && typeof text === 'string'
+              ? `Source ${sourceId}: ${text}`
+              : null;
+          })
+          .filter((value): value is string => Boolean(value))
+          .join(' | ');
+        const interpretation = typeof row.interpretation === 'string' ? row.interpretation : '';
+        const summary = [labelsSummary, interpretation].filter(Boolean).join(' -- ');
+        if (typeof row.subject === 'string' && summary) {
+          differences.push({
+            topic: row.subject,
+            summary,
+            source_ids,
+          });
+        }
+      }
+    }
+
+    if (!('differences' in patched) || !Array.isArray(patched.differences)) {
+      patched.differences = differences;
+    }
+
+    const arrayFields = ['agreements', 'differences', 'key_entities', 'open_questions'];
     for (const field of arrayFields) {
       if (!(field in patched) || !Array.isArray(patched[field])) {
         patched[field] = [];

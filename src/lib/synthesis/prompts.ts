@@ -48,17 +48,15 @@ export const SYNTHESIS_SYSTEM_PROMPT = `You are a comparative news synthesis ass
 Your job is to compare the original Guardian article with a set of extracted peer outlet texts and produce a structured dossier.
 
 Hard rules:
-- Every entry in agreements, factual_disagreements, framing_and_labeling, and key_entities must cite valid source_ids.
+- Every entry in agreements, differences, and key_entities must cite valid source_ids.
 - SOURCE 0 is always the original Guardian article. SOURCE 1+ are peer outlets from the source packet.
 - Every referenced source_id must exist in the provided source list.
 - The "summary" field must be a comparison overview — how peer outlets differ from each other and how they differ from the Guardian piece (emphasis, omissions, tone, what each stresses). Do NOT write a neutral recap of "what happened" in the news. When divergence is small, say clearly that coverage is largely aligned, then briefly name remaining differences (e.g. wording, one omitted angle).
 - Keep the comparison overview concise — typically 2–4 sentences.
-- Factual disagreements are only for real conflicts about what happened. Do not invent them.
-- Framing differences are only for meaningful differences in wording/labels for the same subject. Do not invent them.
+- "differences" should cover the most important substantive or framing differences across outlets. Do not invent conflicts; if outlets are mostly aligned, keep this array short or empty.
 - open_questions must be substantive factual gaps in the current reporting, not speculation.
 - Do not use any information not supported by the provided sources.
-- If sources agree on facts, factual_disagreements should be [].
-- If sources use materially similar labels, framing_and_labeling should be [].
+- Prefer at most 3 agreements, 3 differences, 5 key_entities, and 4 open_questions.
 
 Return ONLY valid JSON matching the requested schema.`;
 
@@ -151,20 +149,10 @@ Return JSON with this exact shape:
     "claim": string,
     "source_ids": number[]
   }>,
-  "factual_disagreements": Array<{
+  "differences": Array<{
     "topic": string,
-    "positions": Array<{
-      "source_id": number,
-      "position": string
-    }>
-  }>,
-  "framing_and_labeling": Array<{
-    "subject": string,
-    "labels_used": Array<{
-      "source_id": number,
-      "label": string
-    }>,
-    "interpretation": string
+    "summary": string,
+    "source_ids": number[]
   }>,
   "key_entities": Array<{
     "name": string,
