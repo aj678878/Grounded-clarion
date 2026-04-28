@@ -4,13 +4,14 @@
 /* ------------------------------------------------------------------ */
 
 import { createPool, type VercelPool } from '@vercel/postgres';
+import { getPostgresConnectionString } from '@/lib/postgres-connection';
 
 let pool: VercelPool | null = null;
 let warnedThisRequest = false; // Track warning per request
 
 function getPool(): VercelPool | null {
   if (pool) return pool;
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = getPostgresConnectionString();
   if (!connectionString) return null;
   pool = createPool({ connectionString });
   return pool;
@@ -58,7 +59,7 @@ export async function insertChatTrace(trace: ChatTrace): Promise<string | null> 
   if (!db) {
     if (!warnedThisRequest) {
       console.warn(
-        `[TRACES_DISABLED] NODE_ENV=${process.env.NODE_ENV || 'undefined'}, DATABASE_URL=${process.env.DATABASE_URL ? 'present' : 'missing'}`
+        `[TRACES_DISABLED] NODE_ENV=${process.env.NODE_ENV || 'undefined'}, Postgres URL=${getPostgresConnectionString() ? 'present' : 'missing'}`
       );
       warnedThisRequest = true;
     }

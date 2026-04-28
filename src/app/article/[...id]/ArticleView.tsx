@@ -129,6 +129,7 @@ export default function ArticleView({ article }: ArticleViewProps) {
                 <span
                   className="font-ui"
                   style={{ fontSize: '11.5px', color: 'var(--ink-3)' }}
+                  suppressHydrationWarning
                 >
                   {formatDate(article.webPublicationDate)}
                 </span>
@@ -176,6 +177,9 @@ export default function ArticleView({ article }: ArticleViewProps) {
             articleId={article.id}
             articleTitle={article.webTitle}
             articleText={plainText}
+            articleSourceUrl={article.webUrl}
+            articleSourceDomain={new URL(article.webUrl).hostname.replace(/^www\./, '')}
+            articlePublishedAt={article.webPublicationDate}
           />
         </aside>
       </div>

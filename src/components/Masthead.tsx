@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 function formatToday(): string {
   return new Date().toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -10,7 +12,11 @@ function formatToday(): string {
 }
 
 export default function Masthead() {
-  const today = formatToday();
+  const [today, setToday] = useState<string | null>(null);
+  useEffect(() => {
+    setToday(formatToday());
+  }, []);
+
   return (
     <header
       className="w-full text-center"
@@ -42,7 +48,7 @@ export default function Masthead() {
           className="font-ui uppercase"
           style={{ fontSize: '11px', letterSpacing: '0.5px' }}
         >
-          {today}
+          {today ?? '\u00a0'}
         </span>
         <span
           className="font-headline italic"

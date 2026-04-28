@@ -25,6 +25,8 @@ export interface CallAnthropicOptions {
   maxTokens?: number;
   temperature?: number;
   applyRateLimit?: boolean;
+  /** Request timeout in ms. Defaults to 55 000 ms to stay under Vercel's 60 s limit. */
+  timeoutMs?: number;
 }
 
 /* ---------- Client ---------- */
@@ -58,16 +60,26 @@ export async function callAnthropic(opts: CallAnthropicOptions): Promise<string>
   if (opts.system) body.system = opts.system;
   if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
+  // ---- Timeout ----
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? 55_000);
+
   // ---- HTTP call ----
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');

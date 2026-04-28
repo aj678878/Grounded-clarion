@@ -13,7 +13,7 @@ let lastCallTime = 0;
  * Called automatically inside `callAnthropic` — no need to call manually.
  */
 export async function rateLimit(): Promise<void> {
-  const minDelay = parseInt(process.env.LLM_MIN_DELAY_MS ?? '13000', 10);
+  const minDelay = parseInt(process.env.LLM_MIN_DELAY_MS ?? '0', 10);
   const now = Date.now();
   const elapsed = now - lastCallTime;
 
@@ -28,7 +28,7 @@ export async function rateLimit(): Promise<void> {
 
 /** Get the configured minimum delay. */
 export function getMinDelayMs(): number {
-  return parseInt(process.env.LLM_MIN_DELAY_MS ?? '13000', 10);
+  return parseInt(process.env.LLM_MIN_DELAY_MS ?? '0', 10);
 }
 
 /** Reset limiter state (for testing). */

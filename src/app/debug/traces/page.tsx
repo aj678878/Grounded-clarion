@@ -4,6 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { getRecentTraces, type ChatTrace } from '@/lib/traces';
+import { getRecentSynthesisTraces, type SynthesisTraceRow } from '@/lib/synthesis/traces';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,6 +59,30 @@ export default async function TracesPage({ searchParams }: PageProps) {
   }
 
   const traces = await getRecentTraces(limit, includeDebugFlow, 4000);
+  const synthesis = await getRecentSynthesisTraces(limit);
+
+  const synthHint = (() => {
+    if (!synthesis.databaseConfigured) {
+      return {
+        variant: 'amber' as const,
+        title: 'Trace database not configured',
+        body:
+          'DATABASE_URL / POSTGRES_URL is not available to this handler, so Postgres-backed traces cannot be loaded. Configure it locally (`.env.local`) or in Vercel project settings for preview/production.',
+      };
+    }
+    if (synthesis.fetchError) {
+      const missingTable =
+        /relation ["']synthesis_traces["'] does not exist/i.test(synthesis.fetchError);
+      return {
+        variant: missingTable ? ('amber' as const) : ('red' as const),
+        title: missingTable ? 'Synthesis traces table missing' : 'Could not load synthesis traces',
+        body: missingTable
+          ? 'Run migration db/migrations/20260428_add_synthesis_traces.sql on the DATABASE_URL database (e.g. Vercel Storage → Postgres → query, or psql). chat_traces can exist without synthesis_traces if this migration was skipped.'
+          : synthesis.fetchError,
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="min-h-screen bg-gray-50 font-body">
@@ -68,7 +93,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
             <h1 className="font-headline text-lg font-bold text-gray-900">
               Trace Viewer
             </h1>
-            <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400">
               Last {traces.length} chat interactions
               {includeDebugFlow ? ' (full debug payloads loaded)' : ' (summary mode)'}
             </p>
@@ -96,6 +121,39 @@ export default async function TracesPage({ searchParams }: PageProps) {
             ))}
           </div>
         )}
+
+        <section className="mt-10">
+          <div className="mb-3">
+            <h2 className="font-headline text-xl font-bold text-gray-900">Synthesis traces</h2>
+            <p className="text-xs text-gray-400">Compare Sources runs (Postgres table synthesis_traces)</p>
+          </div>
+          {synthHint && (
+            <div
+              role="alert"
+              className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                synthHint.variant === 'amber'
+                  ? 'border-amber-200 bg-amber-50 text-amber-950'
+                  : 'border-red-200 bg-red-50 text-red-900'
+              }`}
+            >
+              <p className="font-semibold">{synthHint.title}</p>
+              <p className="mt-1 text-[13px] leading-relaxed">{synthHint.body}</p>
+            </div>
+          )}
+          {synthesis.traces.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-400">
+              {synthHint
+                ? 'No rows displayed because of the issue above.'
+                : 'No synthesis traces yet — run Compare Sources on this deployment after the table exists.'}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {synthesis.traces.map((trace) => (
+                <SynthesisTraceCard key={trace.id ?? `${trace.article_id}-${trace.created_at}`} trace={trace} />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
@@ -290,6 +348,205 @@ function TraceCard({ trace }: { trace: ChatTrace }) {
         )}
       </div>
     </div>
+  );
+}
+
+function SynthesisTraceCard({ trace }: { trace: SynthesisTraceRow }) {
+  const payload = trace.synthesis_payload as Record<string, unknown> | null | undefined;
+  const phases = Array.isArray(trace.phases) ? trace.phases : [];
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-gray-100 bg-gray-50/50 px-4 py-2 text-xs">
+        <span className="font-medium text-gray-600">{formatTimestamp(trace.created_at)}</span>
+        <span className="text-gray-400">article: <code className="text-gray-600">{truncate(trace.article_id, 40)}</code></span>
+        <span className="text-gray-400">thread: <code className="text-gray-600">{truncate(trace.thread_id ?? '—', 12)}</code></span>
+        <span className="ml-auto font-mono font-medium text-gray-700">{trace.total_duration_ms}ms total</span>
+      </div>
+      <div className="px-4 py-3 space-y-2 text-xs">
+        <div className="flex flex-wrap gap-2">
+          <Badge color={trace.status === 'success' ? 'green' : 'yellow'}>{trace.status}</Badge>
+          <Badge color={trace.bias_diversity_warning ? 'yellow' : 'gray'}>
+            {trace.bias_diversity_warning ? 'bias warning' : 'bias ok'}
+          </Badge>
+          <span className="text-gray-400">sources: {trace.sources_used ?? 0}/{trace.sources_attempted ?? 0}</span>
+        </div>
+        {phases.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-gray-500">Show synthesis phases</summary>
+            <div className="mt-2 space-y-2">
+              {phases.map((phase, idx) => (
+                <SynthesisPhaseDetails key={`${phase.phase}-${idx}`} phase={phase} />
+              ))}
+            </div>
+          </details>
+        )}
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">Show synthesis payload</summary>
+          <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {safeStringify(payload ?? trace.synthesis_payload)}
+          </pre>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function SynthesisPhaseDetails({
+  phase,
+}: {
+  phase: SynthesisTraceRow['phases'][number];
+}) {
+  const metadata = (phase.metadata ?? {}) as Record<string, unknown>;
+  const badgeColor =
+    phase.status === 'ok'
+      ? 'green'
+      : phase.status === 'error'
+      ? 'red'
+      : 'yellow';
+
+  return (
+    <details className="rounded border border-gray-200 bg-gray-50">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-700">
+        <span className="mr-2">{phase.phase}</span>
+        <Badge color={badgeColor}>{phase.status}</Badge>
+        <span className="ml-2 text-gray-400">{phase.duration_ms}ms</span>
+      </summary>
+      <div className="space-y-2 border-t border-gray-200 bg-white p-3">
+        {phase.phase === 'source_discovery' && (
+          <SourceDiscoveryDebug metadata={metadata} />
+        )}
+        {phase.phase === 'content_extraction' && (
+          <ContentExtractionDebug metadata={metadata} />
+        )}
+        {phase.phase === 'synthesis' && (
+          <SynthesisDebug metadata={metadata} />
+        )}
+        {phase.phase === 'event_extraction' && (
+          <EventExtractionDebug metadata={metadata} />
+        )}
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">
+            Raw phase metadata
+          </summary>
+          <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {safeStringify(metadata)}
+          </pre>
+        </details>
+      </div>
+    </details>
+  );
+}
+
+function EventExtractionDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  return (
+    <div className="space-y-1 text-xs text-gray-600">
+      {typeof metadata.model === 'string' && <p>model: <code>{metadata.model}</code></p>}
+      {typeof metadata.attempts === 'number' && <p>attempts: {metadata.attempts}</p>}
+      {typeof metadata.used_fallback === 'boolean' && (
+        <p>used fallback: {metadata.used_fallback ? 'yes' : 'no'}</p>
+      )}
+      {typeof metadata.article_excerpt_used === 'string' && (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">Article excerpt used</summary>
+          <pre className="mt-2 max-h-48 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {metadata.article_excerpt_used}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function SourceDiscoveryDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  const accepted = Array.isArray(metadata.accepted_exact_matches)
+    ? metadata.accepted_exact_matches as Array<Record<string, unknown>>
+    : [];
+  const rejected = Array.isArray(metadata.rejected_candidates)
+    ? metadata.rejected_candidates as Array<Record<string, unknown>>
+    : [];
+
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-3">
+        {typeof metadata.total_candidates_before_gating === 'number' && (
+          <span>candidates: {metadata.total_candidates_before_gating}</span>
+        )}
+        {typeof metadata.search_query === 'string' && (
+          <span>query: <code>{metadata.search_query}</code></span>
+        )}
+        {typeof metadata.article_published_at === 'string' && (
+          <span>article published: <code>{metadata.article_published_at}</code></span>
+        )}
+      </div>
+
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Accepted exact matches ({accepted.length})
+        </summary>
+        <pre className="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(accepted)}
+        </pre>
+      </details>
+
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Rejected candidates ({rejected.length})
+        </summary>
+        <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(rejected)}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+function ContentExtractionDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  const perSource = Array.isArray(metadata.per_source)
+    ? metadata.per_source as Array<Record<string, unknown>>
+    : [];
+
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Per-source extraction ({perSource.length})
+        </summary>
+        <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(perSource)}
+        </pre>
+      </details>
+      {renderInlineDebugBlock('Tavily extract response', metadata.tavily_extract)}
+    </div>
+  );
+}
+
+function SynthesisDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-3">
+        {typeof metadata.model === 'string' && <span>model: <code>{metadata.model}</code></span>}
+        {typeof metadata.retried === 'boolean' && (
+          <span>retried: {metadata.retried ? 'yes' : 'no'}</span>
+        )}
+        {typeof metadata.salvaged === 'boolean' && (
+          <span>salvaged: {metadata.salvaged ? 'yes' : 'no'}</span>
+        )}
+      </div>
+      {renderInlineDebugBlock('Raw synthesis JSON', metadata.raw_json)}
+      {renderInlineDebugBlock('Fallback text', metadata.fallback_text)}
+    </div>
+  );
+}
+
+function renderInlineDebugBlock(label: string, value: unknown) {
+  if (value === undefined || value === null) return null;
+  return (
+    <details>
+      <summary className="cursor-pointer text-xs font-medium text-gray-500">{label}</summary>
+      <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+        {typeof value === 'string' ? value : safeStringify(value)}
+      </pre>
+    </details>
   );
 }
 

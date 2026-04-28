@@ -4,13 +4,14 @@
 /* ------------------------------------------------------------------ */
 
 import { createPool, type VercelPool } from '@vercel/postgres';
+import { getPostgresConnectionString } from '@/lib/postgres-connection';
 import { MetricEvent } from '@/types';
 
 let pool: VercelPool | null = null;
 
 function getPool(): VercelPool | null {
   if (pool) return pool;
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = getPostgresConnectionString();
   if (!connectionString) return null;
   pool = createPool({ connectionString });
   return pool;
@@ -20,7 +21,7 @@ function getPool(): VercelPool | null {
 export async function insertMetricEvent(event: MetricEvent): Promise<string | null> {
   const db = getPool();
   if (!db) {
-    console.warn('[metrics] DATABASE_URL not configured — event skipped:', event.event_type);
+    console.warn('[metrics] Postgres URL not configured — event skipped:', event.event_type);
     return null;
   }
 
