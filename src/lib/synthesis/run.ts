@@ -7,6 +7,12 @@ import { updateJob } from './job-store';
 import type { SourceProgress } from './job-store';
 import type { CompareSourcesRequest, SynthesisTraceInput } from './schema';
 
+function persistTraceBestEffort(tracePayload: SynthesisTraceInput): void {
+  void insertSynthesisTrace(tracePayload).catch((err) => {
+    console.error('[compare-sources] Synthesis trace persistence failed:', err);
+  });
+}
+
 export async function runCompareSourcesAsync(
   input: CompareSourcesRequest,
   jobId: string
@@ -47,7 +53,6 @@ export async function runCompareSourcesAsync(
         bias_diversity_warning: phase2.result.bias_diversity_warning,
         sources_attempted: phase2.result.candidates_considered, sources_used: 0,
       };
-      await insertSynthesisTrace(tracePayload);
       updateJob(jobId, {
         status: 'done',
         result: {
@@ -57,6 +62,7 @@ export async function runCompareSourcesAsync(
           payload: { phase1: phase1.signature, phase2: phase2.result, phase3: null, phase4: null },
         },
       });
+      persistTraceBestEffort(tracePayload);
       return;
     }
     if (asyncSelectedCount === 1) {
@@ -113,8 +119,6 @@ export async function runCompareSourcesAsync(
       synthesis_payload: phase4.payload as Record<string, unknown>,
     };
 
-    await insertSynthesisTrace(tracePayload);
-
     updateJob(jobId, {
       status: 'done',
       result: {
@@ -132,6 +136,7 @@ export async function runCompareSourcesAsync(
         },
       },
     });
+    persistTraceBestEffort(tracePayload);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Pipeline failed';
     updateJob(jobId, { status: 'error', error: message });

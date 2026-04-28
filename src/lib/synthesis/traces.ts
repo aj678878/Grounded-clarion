@@ -10,6 +10,7 @@ import {
 } from './schema';
 
 let pool: VercelPool | null = null;
+const TRACE_INSERT_TIMEOUT_MS = 2_500;
 
 function getPool(): VercelPool | null {
   if (pool) return pool;
@@ -34,6 +35,25 @@ function normalizeTraceInput(trace: SynthesisTraceInput): SynthesisTraceInput {
   };
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<number | null> {
   const db = getPool();
   if (!db) return null;
@@ -45,30 +65,34 @@ export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<
   }
 
   try {
-    const { rows } = await db.query(
-      `INSERT INTO synthesis_traces (
-        article_id, thread_id, status, phases, cost_usd_estimate, total_duration_ms,
-        bias_diversity_warning, apify_invocations, paywall_count,
-        sources_attempted, sources_used, synthesis_payload
-      ) VALUES (
-        $1, $2, $3, $4::jsonb, $5, $6,
-        $7, $8, $9,
-        $10, $11, $12::jsonb
-      ) RETURNING id`,
-      [
-        parsed.data.article_id,
-        parsed.data.thread_id ?? null,
-        parsed.data.status,
-        JSON.stringify(parsed.data.phases),
-        parsed.data.cost_usd_estimate ?? null,
-        parsed.data.total_duration_ms,
-        parsed.data.bias_diversity_warning ?? false,
-        parsed.data.apify_invocations ?? 0,
-        parsed.data.paywall_count ?? 0,
-        parsed.data.sources_attempted ?? null,
-        parsed.data.sources_used ?? null,
-        JSON.stringify(parsed.data.synthesis_payload ?? null),
-      ]
+    const { rows } = await withTimeout(
+      db.query(
+        `INSERT INTO synthesis_traces (
+          article_id, thread_id, status, phases, cost_usd_estimate, total_duration_ms,
+          bias_diversity_warning, apify_invocations, paywall_count,
+          sources_attempted, sources_used, synthesis_payload
+        ) VALUES (
+          $1, $2, $3, $4::jsonb, $5, $6,
+          $7, $8, $9,
+          $10, $11, $12::jsonb
+        ) RETURNING id`,
+        [
+          parsed.data.article_id,
+          parsed.data.thread_id ?? null,
+          parsed.data.status,
+          JSON.stringify(parsed.data.phases),
+          parsed.data.cost_usd_estimate ?? null,
+          parsed.data.total_duration_ms,
+          parsed.data.bias_diversity_warning ?? false,
+          parsed.data.apify_invocations ?? 0,
+          parsed.data.paywall_count ?? 0,
+          parsed.data.sources_attempted ?? null,
+          parsed.data.sources_used ?? null,
+          JSON.stringify(parsed.data.synthesis_payload ?? null),
+        ]
+      ),
+      TRACE_INSERT_TIMEOUT_MS,
+      'synthesis trace insert'
     );
 
     return rows[0]?.id ?? null;
