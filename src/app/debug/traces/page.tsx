@@ -59,7 +59,30 @@ export default async function TracesPage({ searchParams }: PageProps) {
   }
 
   const traces = await getRecentTraces(limit, includeDebugFlow, 4000);
-  const synthesisTraces = await getRecentSynthesisTraces(limit);
+  const synthesis = await getRecentSynthesisTraces(limit);
+
+  const synthHint = (() => {
+    if (!synthesis.databaseConfigured) {
+      return {
+        variant: 'amber' as const,
+        title: 'Trace database not configured',
+        body:
+          'DATABASE_URL is not available to this handler, so Postgres-backed traces cannot be loaded. Configure it locally (`.env.local`) or in Vercel project settings for preview/production.',
+      };
+    }
+    if (synthesis.fetchError) {
+      const missingTable =
+        /relation ["']synthesis_traces["'] does not exist/i.test(synthesis.fetchError);
+      return {
+        variant: missingTable ? ('amber' as const) : ('red' as const),
+        title: missingTable ? 'Synthesis traces table missing' : 'Could not load synthesis traces',
+        body: missingTable
+          ? 'Run migration db/migrations/20260428_add_synthesis_traces.sql on the DATABASE_URL database (e.g. Vercel Storage → Postgres → query, or psql). chat_traces can exist without synthesis_traces if this migration was skipped.'
+          : synthesis.fetchError,
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="min-h-screen bg-gray-50 font-body">
@@ -102,15 +125,30 @@ export default async function TracesPage({ searchParams }: PageProps) {
         <section className="mt-10">
           <div className="mb-3">
             <h2 className="font-headline text-xl font-bold text-gray-900">Synthesis traces</h2>
-            <p className="text-xs text-gray-400">Compare Sources runs</p>
+            <p className="text-xs text-gray-400">Compare Sources runs (Postgres table synthesis_traces)</p>
           </div>
-          {synthesisTraces.length === 0 ? (
+          {synthHint && (
+            <div
+              role="alert"
+              className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
+                synthHint.variant === 'amber'
+                  ? 'border-amber-200 bg-amber-50 text-amber-950'
+                  : 'border-red-200 bg-red-50 text-red-900'
+              }`}
+            >
+              <p className="font-semibold">{synthHint.title}</p>
+              <p className="mt-1 text-[13px] leading-relaxed">{synthHint.body}</p>
+            </div>
+          )}
+          {synthesis.traces.length === 0 ? (
             <div className="rounded-lg border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-400">
-              No synthesis traces yet.
+              {synthHint
+                ? 'No rows displayed because of the issue above.'
+                : 'No synthesis traces yet — run Compare Sources on this deployment after the table exists.'}
             </div>
           ) : (
             <div className="space-y-4">
-              {synthesisTraces.map((trace) => (
+              {synthesis.traces.map((trace) => (
                 <SynthesisTraceCard key={trace.id ?? `${trace.article_id}-${trace.created_at}`} trace={trace} />
               ))}
             </div>

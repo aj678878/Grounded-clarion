@@ -20,11 +20,21 @@ export interface SynthesisTraceRow extends SynthesisTraceInput {
   created_at?: string;
 }
 
+function normalizeTraceInput(trace: SynthesisTraceInput): SynthesisTraceInput {
+  const tid = trace.thread_id;
+  const trimmed =
+    typeof tid === 'string' ? tid.trim() : '';
+  return {
+    ...trace,
+    thread_id: trimmed.length > 0 ? tid as string : null,
+  };
+}
+
 export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<number | null> {
   const db = getPool();
   if (!db) return null;
 
-  const parsed = synthesisTraceSchema.safeParse(trace);
+  const parsed = synthesisTraceSchema.safeParse(normalizeTraceInput(trace));
   if (!parsed.success) {
     console.error('[synthesis-traces] Invalid trace payload:', parsed.error.flatten());
     return null;
@@ -64,19 +74,34 @@ export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<
   }
 }
 
-export async function getRecentSynthesisTraces(limit = 20): Promise<SynthesisTraceRow[]> {
+export async function getRecentSynthesisTraces(limit = 20): Promise<{
+  traces: SynthesisTraceRow[];
+  /** Postgres / pool issue — same DB can have chat_traces without synthesis_traces if migration missing */
+  fetchError: string | null;
+  databaseConfigured: boolean;
+}> {
+  if (!process.env.DATABASE_URL) {
+    return { traces: [], fetchError: null, databaseConfigured: false };
+  }
   const db = getPool();
-  if (!db) return [];
+  if (!db) {
+    return { traces: [], fetchError: null, databaseConfigured: false };
+  }
 
   try {
     const { rows } = await db.query(
       `SELECT * FROM synthesis_traces ORDER BY created_at DESC LIMIT $1`,
       [limit]
     );
-    return rows as SynthesisTraceRow[];
+    return {
+      traces: rows as SynthesisTraceRow[],
+      fetchError: null,
+      databaseConfigured: true,
+    };
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error('[synthesis-traces] Failed to fetch traces:', err);
-    return [];
+    return { traces: [], fetchError: msg, databaseConfigured: true };
   }
 }
 
