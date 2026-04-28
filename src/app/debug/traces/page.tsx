@@ -353,6 +353,7 @@ function TraceCard({ trace }: { trace: ChatTrace }) {
 
 function SynthesisTraceCard({ trace }: { trace: SynthesisTraceRow }) {
   const payload = trace.synthesis_payload as Record<string, unknown> | null | undefined;
+  const phases = Array.isArray(trace.phases) ? trace.phases : [];
   return (
     <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-gray-100 bg-gray-50/50 px-4 py-2 text-xs">
@@ -368,8 +369,17 @@ function SynthesisTraceCard({ trace }: { trace: SynthesisTraceRow }) {
             {trace.bias_diversity_warning ? 'bias warning' : 'bias ok'}
           </Badge>
           <span className="text-gray-400">sources: {trace.sources_used ?? 0}/{trace.sources_attempted ?? 0}</span>
-          <span className="text-gray-400">cost: ${Number(trace.cost_usd_estimate ?? 0).toFixed(4)}</span>
         </div>
+        {phases.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-xs font-medium text-gray-500">Show synthesis phases</summary>
+            <div className="mt-2 space-y-2">
+              {phases.map((phase, idx) => (
+                <SynthesisPhaseDetails key={`${phase.phase}-${idx}`} phase={phase} />
+              ))}
+            </div>
+          </details>
+        )}
         <details>
           <summary className="cursor-pointer text-xs font-medium text-gray-500">Show synthesis payload</summary>
           <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
@@ -378,6 +388,165 @@ function SynthesisTraceCard({ trace }: { trace: SynthesisTraceRow }) {
         </details>
       </div>
     </div>
+  );
+}
+
+function SynthesisPhaseDetails({
+  phase,
+}: {
+  phase: SynthesisTraceRow['phases'][number];
+}) {
+  const metadata = (phase.metadata ?? {}) as Record<string, unknown>;
+  const badgeColor =
+    phase.status === 'ok'
+      ? 'green'
+      : phase.status === 'error'
+      ? 'red'
+      : 'yellow';
+
+  return (
+    <details className="rounded border border-gray-200 bg-gray-50">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-gray-700">
+        <span className="mr-2">{phase.phase}</span>
+        <Badge color={badgeColor}>{phase.status}</Badge>
+        <span className="ml-2 text-gray-400">{phase.duration_ms}ms</span>
+      </summary>
+      <div className="space-y-2 border-t border-gray-200 bg-white p-3">
+        {phase.phase === 'source_discovery' && (
+          <SourceDiscoveryDebug metadata={metadata} />
+        )}
+        {phase.phase === 'content_extraction' && (
+          <ContentExtractionDebug metadata={metadata} />
+        )}
+        {phase.phase === 'synthesis' && (
+          <SynthesisDebug metadata={metadata} />
+        )}
+        {phase.phase === 'event_extraction' && (
+          <EventExtractionDebug metadata={metadata} />
+        )}
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">
+            Raw phase metadata
+          </summary>
+          <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {safeStringify(metadata)}
+          </pre>
+        </details>
+      </div>
+    </details>
+  );
+}
+
+function EventExtractionDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  return (
+    <div className="space-y-1 text-xs text-gray-600">
+      {typeof metadata.model === 'string' && <p>model: <code>{metadata.model}</code></p>}
+      {typeof metadata.attempts === 'number' && <p>attempts: {metadata.attempts}</p>}
+      {typeof metadata.used_fallback === 'boolean' && (
+        <p>used fallback: {metadata.used_fallback ? 'yes' : 'no'}</p>
+      )}
+      {typeof metadata.article_excerpt_used === 'string' && (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">Article excerpt used</summary>
+          <pre className="mt-2 max-h-48 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {metadata.article_excerpt_used}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function SourceDiscoveryDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  const accepted = Array.isArray(metadata.accepted_exact_matches)
+    ? metadata.accepted_exact_matches as Array<Record<string, unknown>>
+    : [];
+  const rejected = Array.isArray(metadata.rejected_candidates)
+    ? metadata.rejected_candidates as Array<Record<string, unknown>>
+    : [];
+
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-3">
+        {typeof metadata.total_candidates_before_gating === 'number' && (
+          <span>candidates: {metadata.total_candidates_before_gating}</span>
+        )}
+        {typeof metadata.search_query === 'string' && (
+          <span>query: <code>{metadata.search_query}</code></span>
+        )}
+        {typeof metadata.article_published_at === 'string' && (
+          <span>article published: <code>{metadata.article_published_at}</code></span>
+        )}
+      </div>
+
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Accepted exact matches ({accepted.length})
+        </summary>
+        <pre className="mt-2 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(accepted)}
+        </pre>
+      </details>
+
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Rejected candidates ({rejected.length})
+        </summary>
+        <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(rejected)}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
+function ContentExtractionDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  const perSource = Array.isArray(metadata.per_source)
+    ? metadata.per_source as Array<Record<string, unknown>>
+    : [];
+
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <details open>
+        <summary className="cursor-pointer text-xs font-medium text-gray-500">
+          Per-source extraction ({perSource.length})
+        </summary>
+        <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+          {safeStringify(perSource)}
+        </pre>
+      </details>
+      {renderInlineDebugBlock('Tavily extract response', metadata.tavily_extract)}
+    </div>
+  );
+}
+
+function SynthesisDebug({ metadata }: { metadata: Record<string, unknown> }) {
+  return (
+    <div className="space-y-3 text-xs text-gray-600">
+      <div className="flex flex-wrap gap-3">
+        {typeof metadata.model === 'string' && <span>model: <code>{metadata.model}</code></span>}
+        {typeof metadata.retried === 'boolean' && (
+          <span>retried: {metadata.retried ? 'yes' : 'no'}</span>
+        )}
+        {typeof metadata.salvaged === 'boolean' && (
+          <span>salvaged: {metadata.salvaged ? 'yes' : 'no'}</span>
+        )}
+      </div>
+      {renderInlineDebugBlock('Raw synthesis JSON', metadata.raw_json)}
+      {renderInlineDebugBlock('Fallback text', metadata.fallback_text)}
+    </div>
+  );
+}
+
+function renderInlineDebugBlock(label: string, value: unknown) {
+  if (value === undefined || value === null) return null;
+  return (
+    <details>
+      <summary className="cursor-pointer text-xs font-medium text-gray-500">{label}</summary>
+      <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+        {typeof value === 'string' ? value : safeStringify(value)}
+      </pre>
+    </details>
   );
 }
 
