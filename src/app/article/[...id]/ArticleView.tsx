@@ -149,20 +149,34 @@ export default function ArticleView({ article }: ArticleViewProps) {
 
             {/* Footer */}
             <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
-              <a
-                href={article.webUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-ui uppercase"
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  letterSpacing: '0.7px',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                Read original source →
-              </a>
+              <div className="flex flex-wrap gap-4">
+                <a
+                  href={article.webUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-ui uppercase"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.7px',
+                    color: 'var(--ink-3)',
+                  }}
+                >
+                  Read original source →
+                </a>
+                <a
+                  href={`/article/${article.id}/compare-sources`}
+                  className="font-ui uppercase"
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.7px',
+                    color: 'var(--accent)',
+                  }}
+                >
+                  Compare sources →
+                </a>
+              </div>
             </div>
           </article>
         </main>

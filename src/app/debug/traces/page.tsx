@@ -4,6 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 import { getRecentTraces, type ChatTrace } from '@/lib/traces';
+import { getRecentSynthesisTraces, type SynthesisTraceRow } from '@/lib/synthesis/traces';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,6 +59,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
   }
 
   const traces = await getRecentTraces(limit, includeDebugFlow, 4000);
+  const synthesisTraces = await getRecentSynthesisTraces(limit);
 
   return (
     <div className="min-h-screen bg-gray-50 font-body">
@@ -68,7 +70,7 @@ export default async function TracesPage({ searchParams }: PageProps) {
             <h1 className="font-headline text-lg font-bold text-gray-900">
               Trace Viewer
             </h1>
-            <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400">
               Last {traces.length} chat interactions
               {includeDebugFlow ? ' (full debug payloads loaded)' : ' (summary mode)'}
             </p>
@@ -96,6 +98,24 @@ export default async function TracesPage({ searchParams }: PageProps) {
             ))}
           </div>
         )}
+
+        <section className="mt-10">
+          <div className="mb-3">
+            <h2 className="font-headline text-xl font-bold text-gray-900">Synthesis traces</h2>
+            <p className="text-xs text-gray-400">Compare Sources runs</p>
+          </div>
+          {synthesisTraces.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-400">
+              No synthesis traces yet.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {synthesisTraces.map((trace) => (
+                <SynthesisTraceCard key={trace.id ?? `${trace.article_id}-${trace.created_at}`} trace={trace} />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );
@@ -288,6 +308,36 @@ function TraceCard({ trace }: { trace: ChatTrace }) {
             </div>
           </details>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SynthesisTraceCard({ trace }: { trace: SynthesisTraceRow }) {
+  const payload = trace.synthesis_payload as Record<string, unknown> | null | undefined;
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-gray-100 bg-gray-50/50 px-4 py-2 text-xs">
+        <span className="font-medium text-gray-600">{formatTimestamp(trace.created_at)}</span>
+        <span className="text-gray-400">article: <code className="text-gray-600">{truncate(trace.article_id, 40)}</code></span>
+        <span className="text-gray-400">thread: <code className="text-gray-600">{truncate(trace.thread_id ?? '—', 12)}</code></span>
+        <span className="ml-auto font-mono font-medium text-gray-700">{trace.total_duration_ms}ms total</span>
+      </div>
+      <div className="px-4 py-3 space-y-2 text-xs">
+        <div className="flex flex-wrap gap-2">
+          <Badge color={trace.status === 'success' ? 'green' : 'yellow'}>{trace.status}</Badge>
+          <Badge color={trace.bias_diversity_warning ? 'yellow' : 'gray'}>
+            {trace.bias_diversity_warning ? 'bias warning' : 'bias ok'}
+          </Badge>
+          <span className="text-gray-400">sources: {trace.sources_used ?? 0}/{trace.sources_attempted ?? 0}</span>
+          <span className="text-gray-400">cost: ${Number(trace.cost_usd_estimate ?? 0).toFixed(4)}</span>
+        </div>
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-gray-500">Show synthesis payload</summary>
+          <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-700">
+            {safeStringify(payload ?? trace.synthesis_payload)}
+          </pre>
+        </details>
       </div>
     </div>
   );

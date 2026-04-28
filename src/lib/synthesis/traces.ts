@@ -1,0 +1,95 @@
+import { createPool, type VercelPool } from '@vercel/postgres';
+import {
+  synthesisTraceSchema,
+  type SynthesisTraceInput,
+  type SynthesisPhaseRecord,
+} from './schema';
+
+let pool: VercelPool | null = null;
+
+function getPool(): VercelPool | null {
+  if (pool) return pool;
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return null;
+  pool = createPool({ connectionString });
+  return pool;
+}
+
+export interface SynthesisTraceRow extends SynthesisTraceInput {
+  id?: number;
+  created_at?: string;
+}
+
+export async function insertSynthesisTrace(trace: SynthesisTraceInput): Promise<number | null> {
+  const db = getPool();
+  if (!db) return null;
+
+  const parsed = synthesisTraceSchema.safeParse(trace);
+  if (!parsed.success) {
+    console.error('[synthesis-traces] Invalid trace payload:', parsed.error.flatten());
+    return null;
+  }
+
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO synthesis_traces (
+        article_id, thread_id, status, phases, cost_usd_estimate, total_duration_ms,
+        bias_diversity_warning, apify_invocations, paywall_count,
+        sources_attempted, sources_used, synthesis_payload
+      ) VALUES (
+        $1, $2, $3, $4::jsonb, $5, $6,
+        $7, $8, $9,
+        $10, $11, $12::jsonb
+      ) RETURNING id`,
+      [
+        parsed.data.article_id,
+        parsed.data.thread_id ?? null,
+        parsed.data.status,
+        JSON.stringify(parsed.data.phases),
+        parsed.data.cost_usd_estimate ?? null,
+        parsed.data.total_duration_ms,
+        parsed.data.bias_diversity_warning ?? false,
+        parsed.data.apify_invocations ?? 0,
+        parsed.data.paywall_count ?? 0,
+        parsed.data.sources_attempted ?? null,
+        parsed.data.sources_used ?? null,
+        JSON.stringify(parsed.data.synthesis_payload ?? null),
+      ]
+    );
+
+    return rows[0]?.id ?? null;
+  } catch (err) {
+    console.error('[synthesis-traces] Failed to insert trace:', err);
+    return null;
+  }
+}
+
+export async function getRecentSynthesisTraces(limit = 20): Promise<SynthesisTraceRow[]> {
+  const db = getPool();
+  if (!db) return [];
+
+  try {
+    const { rows } = await db.query(
+      `SELECT * FROM synthesis_traces ORDER BY created_at DESC LIMIT $1`,
+      [limit]
+    );
+    return rows as SynthesisTraceRow[];
+  } catch (err) {
+    console.error('[synthesis-traces] Failed to fetch traces:', err);
+    return [];
+  }
+}
+
+export function buildPhaseRecord(
+  phase: SynthesisPhaseRecord['phase'],
+  status: SynthesisPhaseRecord['status'],
+  duration_ms: number,
+  metadata?: Record<string, unknown>
+): SynthesisPhaseRecord {
+  return {
+    phase,
+    status,
+    duration_ms,
+    metadata,
+  };
+}
