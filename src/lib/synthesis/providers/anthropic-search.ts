@@ -83,13 +83,15 @@ export async function searchAnthropicWebForDiscovery(input: {
     const candidates: AnthropicDiscoveryCandidate[] = [];
 
     for (const block of data.content ?? []) {
-      if (block.type !== 'server_tool_use') continue;
-      const inputData = (block.input as Record<string, unknown>) ?? {};
-      const results = Array.isArray(inputData.results) ? inputData.results : [];
-      for (const row of results) {
-        const item = row as Record<string, unknown>;
-        const url = asString(item.url);
-        const headline = asString(item.title);
+      // Anthropic web search returns results in server_tool_result blocks,
+      // each containing an array of web_search_result_block items.
+      if (block.type !== 'server_tool_result') continue;
+      const contentItems = Array.isArray(block.content) ? block.content : [];
+      for (const item of contentItems) {
+        const row = item as Record<string, unknown>;
+        if (row.type !== 'web_search_result_block') continue;
+        const url = asString(row.url);
+        const headline = asString(row.title);
         if (!url.startsWith('http') || !headline) continue;
         const sourceDomain = extractDomain(url);
         candidates.push({
@@ -97,8 +99,8 @@ export async function searchAnthropicWebForDiscovery(input: {
           url,
           source_domain: sourceDomain,
           source_name: sourceDomain,
-          snippet: asString(item.page_result ?? item.text ?? item.snippet),
-          published_at: asString(item.page_age) || null,
+          snippet: '',
+          published_at: asString(row.page_age) || null,
         });
       }
     }

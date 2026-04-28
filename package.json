@@ -13,8 +13,8 @@
     "eval": "npm run eval:generate && npm run eval:run"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
     "@mozilla/readability": "^0.6.0",
+    "@vercel/functions": "^2.0.0",
     "@vercel/postgres": "^0.10.0",
     "jsdom": "^28.1.0",
     "next": "^14.2.0",

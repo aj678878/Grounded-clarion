@@ -87,6 +87,8 @@ export function buildSynthesisUserPrompt(args: {
 }): string {
   const sourceList = args.extractedSources
     .map((source) => {
+      const truncated = source.content.slice(0, 1500);
+      const suffix = source.content.length > 1500 ? '\n…[truncated]' : '';
       return `SOURCE ${source.source_id}
 name: ${source.source_name}
 domain: ${source.source_domain}
@@ -94,7 +96,7 @@ headline: ${source.headline}
 published_at: ${source.published_at ?? 'unknown'}
 extraction_quality: ${source.extraction_quality}
 content:
-${source.content}`;
+${truncated}${suffix}`;
     })
     .join('\n\n');
 

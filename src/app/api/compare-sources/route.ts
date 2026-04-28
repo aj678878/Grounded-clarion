@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { compareSourcesRequestSchema } from '@/lib/synthesis/schema';
 import { runCompareSourcesAsync } from '@/lib/synthesis/run';
 import { createJob } from '@/lib/synthesis/job-store';
@@ -13,10 +14,10 @@ export async function POST(req: NextRequest) {
     const jobId = crypto.randomUUID();
     createJob(jobId);
 
-    // Fire-and-forget — do NOT await
-    runCompareSourcesAsync(parsed, jobId).catch(() => {
+    // Keep the Vercel function alive until the pipeline completes
+    waitUntil(runCompareSourcesAsync(parsed, jobId).catch(() => {
       /* errors are written to the job store */
-    });
+    }));
 
     return NextResponse.json({ jobId });
   } catch (err) {

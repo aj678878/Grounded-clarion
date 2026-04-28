@@ -47,16 +47,15 @@ describe('discoverSources', () => {
   });
 
   it('targets preferred tiers, includes regionals, and caps at 6', async () => {
+    // Pass 1: tier1 + tier2_open combined (single Tavily call)
+    // Pass 2: tier2_paywall
+    // Pass 3: regional_south_america
     mockedTavily
       .mockResolvedValueOnce(
         okTavily([
           { headline: 'Reuters 1', url: 'https://www.reuters.com/a', source_domain: 'reuters.com', source_name: 'reuters.com', snippet: eventSnippet, published_at: '2026-04-28T10:00:00Z' },
           { headline: 'AP 1', url: 'https://apnews.com/a', source_domain: 'apnews.com', source_name: 'apnews.com', snippet: eventSnippet, published_at: '2026-04-28T09:00:00Z' },
           { headline: 'BBC 1', url: 'https://www.bbc.com/a', source_domain: 'bbc.com', source_name: 'bbc.com', snippet: eventSnippet, published_at: '2026-04-28T08:00:00Z' },
-        ])
-      )
-      .mockResolvedValueOnce(
-        okTavily([
           { headline: 'CNN 1', url: 'https://www.cnn.com/a', source_domain: 'cnn.com', source_name: 'cnn.com', snippet: eventSnippet, published_at: '2026-04-28T07:00:00Z' },
           { headline: 'Politico 1', url: 'https://www.politico.com/a', source_domain: 'politico.com', source_name: 'politico.com', snippet: eventSnippet, published_at: '2026-04-28T06:00:00Z' },
         ])

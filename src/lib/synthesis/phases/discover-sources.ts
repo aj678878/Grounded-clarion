@@ -377,9 +377,9 @@ function toDiscoveredSources(selected: DiscoveryCandidate[], limit = 6): Discove
 }
 
 function buildTavilyPasses(signature: EventSignature): TavilyPassSpec[] {
+  // Combine tier1 + tier2_open into one pass to halve Tavily API calls
   const passes: TavilyPassSpec[] = [
-    { label: 'tier1', includeDomains: SOURCES.tier1, maxResults: 6 },
-    { label: 'tier2_open', includeDomains: SOURCES.tier2_open, maxResults: 6 },
+    { label: 'tier1_tier2_open', includeDomains: [...SOURCES.tier1, ...SOURCES.tier2_open], maxResults: 10 },
     { label: 'tier2_paywall', includeDomains: SOURCES.tier2_paywall, maxResults: 5 },
   ];
 

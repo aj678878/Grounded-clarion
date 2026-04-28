@@ -12,13 +12,16 @@ import type {
 } from '../schema';
 import { contentExtractionResultSchema } from '../schema';
 
+// Only domains that actually have hard paywalls and are supported by Apify extractor.
+// wired.com and npr.org removed (open-access). wsj.com, ft.com, economist.com added (hard paywalls).
 const APIFY_SUPPORTED_DOMAINS = new Set([
   'nytimes.com',
   'washingtonpost.com',
-  'wired.com',
-  'cnbc.com',
-  'npr.org',
   'bloomberg.com',
+  'wsj.com',
+  'ft.com',
+  'economist.com',
+  'cnbc.com',
 ]);
 
 function normalizeWhitespace(text: string): string {
