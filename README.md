@@ -30,12 +30,12 @@ Average Turns to Resolution — the number of questions a user needs to ask befo
 
 - **Masthead** — publication name, date, edition line, tagline
 - **Navigation bar** (sticky) — category tabs (All · World · Business · Technology · India), search input, day/night toggle
-- **Hero article** — full-width feature with image placeholder (shown on All and World tabs)
+- **Hero article** — full-width feature with Guardian thumbnail (fallback only when no image is available), shown on All and World tabs
 - **3-column grid** — World | Business | Tech & India, each column with its own section header
-- Articles show headline, byline, trail text, and "Read & Discuss →" link
+- Articles show headline, Guardian byline when available, trail text, and "Read & Discuss →" link
 
 Search overrides the grid view with a flat single-column list.  
-"Load 30 more" appends additional articles.
+"Load more" appends additional articles on the homepage, topic tabs, and search results.
 
 ### Article Page
 
@@ -66,7 +66,7 @@ Chat history is session-based and does not persist after navigation.
 Each user message triggers a two-step workflow:
 
 **Step A — Sufficiency Router:**
-A lightweight Claude Haiku call (~200 output tokens) evaluates the user's question and makes two decisions:
+A lightweight Claude Haiku call (~350 output tokens) evaluates the user's question and makes two decisions:
 
 1. **Intent** — should we answer at all, or politely decline?
    - `answer` — default; covers all factual, analytical, interpretive, and background questions about the article or its subject.
@@ -74,19 +74,27 @@ A lightweight Claude Haiku call (~200 output tokens) evaluates the user's questi
    - `decline_off_topic` — question has no plausible relationship to the article or news (e.g. "Tell me a joke", "What's the weather?"). Returns a canned response immediately, skips search and tutor.
 
 2. **Need web** — (only when `intent = answer`) does the article alone suffice, or is a web search required?
-   - `need_web: false` — article is sufficient to answer through reasoning or synthesis.
+   - `need_web: false` — article is sufficient to answer confidently through grounded reasoning or synthesis.
    - `need_web: true` — answer requires facts not present in the article excerpt (background, definitions, historical data, current status, etc.).
+
+The router is calibrated around **evidential sufficiency**, not question type:
+- analytical or “why” questions do **not** automatically stay article-only
+- factual or “what” questions do **not** automatically trigger search
+- article-adjacent background/context questions remain **in scope** and are routed to `answer`
 
 Router also outputs:
 - `suggested_queries` — 1–2 short factual search queries when `need_web = true`
 - `must_cite` — whether the response requires source citations
 - `reason` — one-sentence explanation of the routing decision
+- `article_evidence_summary` — very short summary of what the article actually provides
+- `would_require_speculation` — whether an article-only answer would require unsupported inference
 
 **Step B — Response Generation:**
 - If `intent` is `decline_meta` or `decline_off_topic`: return canned response. Done.
 - If `need_web = false`: Claude answers from the article only.
 - If `need_web = true` and `TAVILY_API_KEY` is set: call Tavily with suggested queries, pass results to Claude alongside the article.
 - If `need_web = true` but Tavily is unavailable: Claude answers from the article with a note that additional web context was unavailable.
+- If the router returns malformed or incomplete JSON: the API returns a retryable error and the chat UI offers a Retry action that replays the full request.
 
 ### Sources and Context Footer
 
@@ -114,12 +122,12 @@ When web context is used, the system:
 
 ### Rate Limiting & Timeouts
 
-**LLM rate limiting:**
-- A global minimum delay between LLM API calls is enforced via `LLM_MIN_DELAY_MS` (default 13 000 ms).
-- Default is calibrated for the Anthropic **free tier** (5 RPM limit).
-- On a paid Anthropic plan, set `LLM_MIN_DELAY_MS=0` to remove the artificial delay.
-- All LLM calls (router + answer generation) share the same limiter.
-- Transient errors (429, 503, timeouts) are retried with exponential backoff (2 s → 4 s → 8 s, max 3 attempts).
+**Live app behavior:**
+- Router and answer generation are retried on transient upstream errors (429, 503, network timeouts) with exponential backoff (2 s → 4 s → 8 s, max 3 attempts).
+- Live chat does **not** apply the conservative eval-time rate limiter by default.
+
+**Eval behavior:**
+- The eval scripts apply a conservative inter-call limiter for Anthropic to stay within low-RPM plans.
 
 **Timeouts:**
 - Tavily web search: 8-second timeout.
@@ -151,8 +159,9 @@ GET /api/feed
 ```
 - Fetches balanced Guardian sections (World, Business, Technology, India)
 - Deduplicates results
-- Paginates (page, page-size)
+- Paginates by page
 - Supports `?q=` search query override
+- Feed/search results include `thumbnail` and `byline` when Guardian provides them
 
 ```
 GET /api/article?id=<guardianId>
@@ -167,10 +176,11 @@ Inputs:
 - `articleText`, `userMessage`, `chatHistory`, `session_id`, `article_id`, `thread_id`, `article_title`
 
 Internally (autonomous two-step routing):
-1. Sufficiency router (Claude Haiku, ~200 tokens) → classifies `intent` + `need_web`
+1. Sufficiency router (Claude Haiku, ~350 tokens) → classifies `intent` + `need_web`
 2. Short-circuit if `intent ≠ answer` → return canned response
 3. If `need_web = true` → Tavily search (≤8 s, max 2 queries, top 3 credible sources)
 4. Response generation (Claude Haiku, article ± search context, ≤900 tokens)
+5. If router parsing fails or the output is unusable → return `503` retryable error (`ROUTER_RETRYABLE`)
 
 Returns:
 ```json
@@ -202,6 +212,7 @@ Logs: `thread_started`, `turn_added`, `clear_clicked`
 |---|---|
 | Guardian API error | Retry twice automatically; show structured error message |
 | API quota exceeded | Display user-friendly message |
+| Router failure / malformed router JSON | Return retryable API error; chat UI shows Retry and replays the same request |
 | LLM timeout | Display retry option |
 | Token overflow | Display conversation limit message |
 | Tavily timeout | Answer from article only; note that web context was unavailable |
@@ -268,6 +279,8 @@ npm run eval:run        # score answers with judge model
 npm run eval            # both steps
 ```
 
+Note: the eval harness still uses an embedded router/answer prompt path in `scripts/eval/run_eval.ts`. It remains useful for regression tracking, but it is not a byte-for-byte execution of the production chat route.
+
 ---
 
 ## Debug: Trace Viewer
@@ -283,6 +296,7 @@ Every chat interaction is logged as a trace in the `chat_traces` Postgres table.
 - Timestamp, article ID, thread ID
 - User message
 - Router decision (`intent`, `need_web`, reason, suggested queries) + latency
+- Router parse diagnostics (`parse_ok`, `parse_error`, `used_default`, raw output)
 - Search status (called/skipped, sources, errors) + latency
 - Answer text (collapsible), character count
 - Full latency breakdown: router → search → answer → total (ms)
@@ -303,9 +317,9 @@ Traces are persisted even on errors (`answer_text` prefixed `ERROR:`).
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
 | `TAVILY_API_KEY` | Recommended | Enables web search; app works without it |
 | `MODEL_TUTOR` | No | Defaults to `claude-haiku-4-5-20251001` |
-| `MODEL_ROUTER` | No | Defaults to `claude-haiku-4-5-20251001` |
+| `MODEL_ROUTER` | No | Currently ignored in app runtime; router and tutor both resolve from `MODEL_TUTOR` |
 | `MODEL_JUDGE` | No | Used by eval scripts only; defaults to same |
 | `DATABASE_URL` | No | Vercel Postgres (auto-set by integration); traces skipped if unset |
-| `LLM_MIN_DELAY_MS` | No | Default `13000` (free tier). Set to `0` on paid plans. |
+| `LLM_MIN_DELAY_MS` | No | Primarily relevant to eval / any code paths that explicitly enable the limiter |
 
 4. Deploy
