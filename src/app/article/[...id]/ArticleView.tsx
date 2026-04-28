@@ -149,34 +149,20 @@ export default function ArticleView({ article }: ArticleViewProps) {
 
             {/* Footer */}
             <div className="mt-10" style={{ borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
-              <div className="flex flex-wrap gap-4">
-                <a
-                  href={article.webUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-ui uppercase"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.7px',
-                    color: 'var(--ink-3)',
-                  }}
-                >
-                  Read original source →
-                </a>
-                <a
-                  href={`/compare-sources/${article.id}`}
-                  className="font-ui uppercase"
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.7px',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  Compare sources →
-                </a>
-              </div>
+              <a
+                href={article.webUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-ui uppercase"
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  letterSpacing: '0.7px',
+                  color: 'var(--ink-3)',
+                }}
+              >
+                Read original source →
+              </a>
             </div>
           </article>
         </main>
@@ -190,6 +176,8 @@ export default function ArticleView({ article }: ArticleViewProps) {
             articleId={article.id}
             articleTitle={article.webTitle}
             articleText={plainText}
+            articleSourceUrl={article.webUrl}
+            articleSourceDomain={new URL(article.webUrl).hostname.replace(/^www\./, '')}
           />
         </aside>
       </div>

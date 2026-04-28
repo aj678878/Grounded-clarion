@@ -158,6 +158,15 @@ html[data-dark='true'] .img-placeholder {
   40% { transform: translateY(-4px); opacity: 1; }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes prog {
+  from { width: 30%; }
+  to { width: 85%; }
+}
+
 .ink-dot {
   display: inline-block;
   width: 6px;

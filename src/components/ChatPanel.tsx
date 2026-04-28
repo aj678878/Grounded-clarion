@@ -4,11 +4,24 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ChatMessage } from '@/types';
 import { getSessionId, generateThreadId } from '@/lib/session';
 import ChatBubble from './ChatBubble';
+import DossierView from './DossierView';
+import { useCompareSources, type SourceStatus, type CompareResult } from '@/hooks/useCompareSources';
+import type {
+  ComparativeSynthesis,
+  DegradedSynthesis,
+  DiscoveredSource,
+} from '@/lib/synthesis/schema';
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 interface ChatPanelProps {
   articleId: string;
   articleTitle?: string;
   articleText: string;
+  articleSourceUrl: string;
+  articleSourceDomain: string;
 }
 
 interface ExtMessage extends ChatMessage {
@@ -31,11 +44,25 @@ interface RetryRequest {
   userMessage: ExtMessage;
 }
 
+type SidebarView = 'chat' | 'dossier';
+
 const STARTER_PROMPTS = [
   'What is the main argument here?',
   'Why does this matter?',
   'What background context am I missing?',
 ];
+
+const PHASE_LABELS: Record<number, string> = {
+  0: 'Starting…',
+  1: 'Extracting event signature…',
+  2: 'Discovering sources…',
+  3: 'Fetching source content…',
+  4: 'Synthesising dossier…',
+};
+
+/* ------------------------------------------------------------------ */
+/*  Metric logger                                                      */
+/* ------------------------------------------------------------------ */
 
 async function logMetric(event: {
   session_id: string;
@@ -54,23 +81,280 @@ async function logMetric(event: {
   }
 }
 
-export default function ChatPanel({ articleId, articleTitle, articleText }: ChatPanelProps) {
+/* ------------------------------------------------------------------ */
+/*  Compare Sources button — 5 states                                  */
+/* ------------------------------------------------------------------ */
+
+function CompareSourcesButton({
+  compareState,
+  currentPhase,
+  sourceStatuses,
+  isPartial,
+  sourcesUsed,
+  sourcesAttempted,
+  onStart,
+  onViewDossier,
+  onRetry,
+}: {
+  compareState: 'idle' | 'loading' | 'done' | 'error';
+  currentPhase: number;
+  sourceStatuses: SourceStatus[];
+  isPartial: boolean;
+  sourcesUsed: number;
+  sourcesAttempted: number;
+  onStart: () => void;
+  onViewDossier: () => void;
+  onRetry: () => void;
+}) {
+  if (compareState === 'idle') {
+    return (
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          onClick={onStart}
+          className="font-ui flex w-full items-center justify-center gap-1.5 uppercase"
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            padding: '7px 12px',
+            border: '1.5px solid var(--ink)',
+            color: 'var(--ink)',
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
+        >
+          Compare Sources
+          <span
+            title="Queries 3–5 sources and synthesises a comparative dossier. ~12 sec."
+            style={{ fontSize: '9px', opacity: 0.5, marginLeft: 'auto', cursor: 'help' }}
+          >
+            ⓘ
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  if (compareState === 'loading') {
+    return (
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          disabled
+          className="font-ui flex w-full items-center justify-center gap-1.5 uppercase"
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            padding: '7px 12px',
+            border: '1.5px solid var(--accent)',
+            color: 'var(--accent)',
+            background: 'rgba(27,58,92,0.04)',
+            cursor: 'default',
+          }}
+        >
+          Gathering Sources…
+        </button>
+        {/* Progress bar */}
+        <div style={{ width: '100%', height: '3px', background: 'var(--border)', marginTop: '6px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: 'var(--accent)', width: '60%', animation: 'prog 2s ease-in-out infinite alternate' }} />
+        </div>
+        {/* Phase label */}
+        <p className="font-ui" style={{ fontSize: '9px', color: 'var(--ink-3)', marginTop: '5px' }}>
+          {PHASE_LABELS[currentPhase] ?? 'Processing…'}
+        </p>
+        {/* Per-source rows */}
+        {sourceStatuses.length > 0 && (
+          <div style={{ marginTop: '6px' }}>
+            {sourceStatuses.map((s) => (
+              <div
+                key={s.source_id}
+                className="font-ui flex items-center gap-2"
+                style={{ fontSize: '10.5px', color: 'var(--ink-2)', padding: '3px 0', borderBottom: '1px dashed var(--border)' }}
+              >
+                <SourceDot status={s.status} />
+                <span>{s.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="font-ui" style={{ fontSize: '9px', color: 'var(--ink-3)', fontStyle: 'italic', marginTop: '6px' }}>
+          This usually takes about 12 seconds.
+        </p>
+      </div>
+    );
+  }
+
+  if (compareState === 'done') {
+    return (
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          onClick={onViewDossier}
+          className="font-ui flex w-full items-center justify-center gap-1.5 uppercase"
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            letterSpacing: '0.7px',
+            padding: '7px 12px',
+            border: '1.5px solid var(--ink)',
+            color: 'var(--paper)',
+            background: 'var(--ink)',
+            cursor: 'pointer',
+          }}
+        >
+          View Dossier
+        </button>
+        {isPartial && (
+          <div
+            className="font-ui flex items-center gap-1.5 mt-1.5"
+            style={{
+              fontSize: '9.5px',
+              color: '#8B5E00',
+              background: '#FFF8E6',
+              borderLeft: '2px solid #8B5E00',
+              padding: '4px 8px',
+            }}
+          >
+            Based on {sourcesUsed} of {sourcesAttempted} sources
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // error
+  return (
+    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)' }}>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="font-ui flex w-full items-center justify-center gap-1.5 uppercase"
+        style={{
+          fontSize: '10px',
+          fontWeight: 600,
+          letterSpacing: '0.7px',
+          padding: '7px 12px',
+          border: '1.5px solid var(--red)',
+          color: 'var(--red)',
+          background: 'transparent',
+          cursor: 'pointer',
+        }}
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Source dot indicator                                                */
+/* ------------------------------------------------------------------ */
+
+function SourceDot({ status }: { status: SourceStatus['status'] }) {
+  const size = '7px';
+  const base: React.CSSProperties = { width: size, height: size, borderRadius: '50%', flexShrink: 0 };
+
+  if (status === 'done') return <span style={{ ...base, background: '#2D6A4F' }} />;
+  if (status === 'failed') return <span style={{ ...base, background: 'var(--red)' }} />;
+  if (status === 'fetching') {
+    return (
+      <span
+        style={{
+          ...base,
+          border: '1.5px solid var(--accent)',
+          borderTopColor: 'transparent',
+          background: 'transparent',
+          animation: 'spin 0.9s linear infinite',
+        }}
+      />
+    );
+  }
+  // queued
+  return <span style={{ ...base, background: 'var(--border)' }} />;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Dossier header                                                     */
+/* ------------------------------------------------------------------ */
+
+function DossierHeader({
+  sourcesUsed,
+  sourcesAttempted,
+  onBack,
+}: {
+  sourcesUsed: number;
+  sourcesAttempted: number;
+  onBack: () => void;
+}) {
+  return (
+    <div
+      className="flex-shrink-0 flex items-center justify-between"
+      style={{ padding: '12px 16px', borderBottom: '2px solid var(--ink)', background: 'var(--paper-card)' }}
+    >
+      <button
+        type="button"
+        onClick={onBack}
+        className="font-ui flex items-center gap-1"
+        style={{
+          fontSize: '9.5px',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.7px',
+          color: 'var(--ink-3)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+        }}
+      >
+        ← Back to Chat
+      </button>
+      <div style={{ textAlign: 'right' }}>
+        <p className="font-headline" style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+          Source Dossier
+        </p>
+        <p className="font-ui" style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--ink-3)', marginTop: '1px' }}>
+          {sourcesUsed} of {sourcesAttempted} sources
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main ChatPanel component                                           */
+/* ------------------------------------------------------------------ */
+
+export default function ChatPanel({
+  articleId,
+  articleTitle,
+  articleText,
+  articleSourceUrl,
+  articleSourceDomain,
+}: ChatPanelProps) {
   const [messages, setMessages] = useState<ExtMessage[]>([]);
   const [input, setInput] = useState('');
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [retryRequest, setRetryRequest] = useState<RetryRequest | null>(null);
+  const [sidebarView, setSidebarView] = useState<SidebarView>('chat');
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const sessionId = useMemo(() => getSessionId(), []);
 
+  const compare = useCompareSources();
+
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) container.scrollTop = container.scrollHeight;
   }, [messages, isLoading]);
+
+  /* ---- Chat logic (unchanged) ---- */
 
   const submitRequest = useCallback(
     async (pending: RetryRequest) => {
@@ -79,7 +363,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
       const next = [...pending.previousMessages, pending.userMessage];
       setMessages(next);
       setInput('');
-      setError(null);
+      setChatError(null);
       setRetryRequest(null);
       setIsLoading(true);
 
@@ -115,15 +399,15 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Something went wrong';
         if (msg.includes('ROUTER_RETRYABLE')) {
-          setError("I couldn't process this question reliably right now. Please retry.");
+          setChatError("I couldn't process this question reliably right now. Please retry.");
         } else if (msg.includes('LLM_TIMEOUT')) {
-          setError('The AI took too long to respond. Please try again.');
+          setChatError('The AI took too long to respond. Please try again.');
         } else if (msg.includes('QUOTA_EXCEEDED')) {
-          setError('API quota exceeded. Please try again later.');
+          setChatError('API quota exceeded. Please try again later.');
         } else if (msg.includes('TOKEN_OVERFLOW')) {
-          setError('Conversation limit reached. Start a new question or refresh the page.');
+          setChatError('Conversation limit reached. Start a new question or refresh the page.');
         } else {
-          setError(msg);
+          setChatError(msg);
         }
         setMessages(pending.previousMessages);
         setRetryRequest(pending);
@@ -183,11 +467,75 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
     }
   };
 
+  /* ---- Compare Sources handlers ---- */
+
+  const handleStartCompare = useCallback(() => {
+    compare.start({
+      article_id: articleId,
+      article_title: articleTitle ?? '',
+      article_content: articleText,
+      article_source_url: articleSourceUrl,
+      article_source_domain: articleSourceDomain,
+    });
+  }, [compare, articleId, articleTitle, articleText, articleSourceUrl, articleSourceDomain]);
+
+  const handleViewDossier = useCallback(() => {
+    setSidebarView('dossier');
+  }, []);
+
+  const handleBackToChat = useCallback(() => {
+    setSidebarView('chat');
+  }, []);
+
+  /* ---- Derive dossier props from result ---- */
+
+  const dossierProps = useMemo(() => {
+    if (!compare.result) return null;
+    const r = compare.result;
+    const sources = r.payload.phase2.selected_sources as DiscoveredSource[];
+    const extractedSourceIds = r.payload.phase3.extracted_sources.map((s: { source_id: number }) => s.source_id);
+    return {
+      synthesis: r.payload.phase4 as ComparativeSynthesis | DegradedSynthesis,
+      sources,
+      extractedSourceIds,
+      sourcesAttempted: r.payload.phase3.sources_attempted,
+      sourcesUsed: r.payload.phase3.sources_used,
+      status: r.status,
+      totalDurationMs: r.total_duration_ms,
+    };
+  }, [compare.result]);
+
   const showStarter = messages.length === 0 && !isLoading;
+
+  /* ================================================================ */
+  /*  DOSSIER VIEW                                                     */
+  /* ================================================================ */
+
+  if (sidebarView === 'dossier' && dossierProps) {
+    return (
+      <div className="flex h-full flex-col" style={{ background: 'var(--paper-card)' }}>
+        <DossierHeader
+          sourcesUsed={dossierProps.sourcesUsed}
+          sourcesAttempted={dossierProps.sourcesAttempted}
+          onBack={handleBackToChat}
+        />
+        <div
+          className="flex-1 min-h-0 overflow-y-auto chat-scroll"
+          style={{ padding: '14px', overscrollBehavior: 'contain' }}
+        >
+          <DossierView {...dossierProps} />
+        </div>
+      </div>
+    );
+  }
+
+  /* ================================================================ */
+  /*  CHAT VIEW                                                        */
+  /* ================================================================ */
 
   return (
     <div className="flex h-full flex-col" style={{ background: 'var(--paper-card)' }}>
-      {/* ---- Header ---- */}
+      {/* Header */}
       <div
         className="flex-shrink-0"
         style={{ padding: '16px 20px 14px', borderBottom: '2px solid var(--ink)', background: 'var(--paper-card)' }}
@@ -200,7 +548,20 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         </p>
       </div>
 
-      {/* ---- Messages — overscroll-behavior: contain stops scroll chaining into article ---- */}
+      {/* Compare Sources action row */}
+      <CompareSourcesButton
+        compareState={compare.state}
+        currentPhase={compare.currentPhase}
+        sourceStatuses={compare.sourceStatuses}
+        isPartial={compare.result?.status === 'partial'}
+        sourcesUsed={compare.result?.payload.phase3.sources_used ?? 0}
+        sourcesAttempted={compare.result?.payload.phase3.sources_attempted ?? 0}
+        onStart={handleStartCompare}
+        onViewDossier={handleViewDossier}
+        onRetry={() => { compare.retry(); }}
+      />
+
+      {/* Messages */}
       <div
         ref={messagesContainerRef}
         className="flex-1 min-h-0 overflow-y-auto chat-scroll"
@@ -253,12 +614,12 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
           </div>
         )}
 
-        {error && (
+        {chatError && (
           <div
             className="font-ui"
             style={{ fontSize: '12px', padding: '10px 12px', background: 'var(--paper-alt)', borderLeft: '3px solid var(--red)', color: 'var(--ink-2)' }}
           >
-            {error}
+            {chatError}
             <button type="button" onClick={retryRequest ? handleRetry : handleSend} className="ml-2 underline" style={{ color: 'var(--accent)' }}>
               Retry
             </button>
@@ -266,7 +627,7 @@ export default function ChatPanel({ articleId, articleTitle, articleText }: Chat
         )}
       </div>
 
-      {/* ---- Composer ---- */}
+      {/* Composer */}
       <div
         className="flex-shrink-0 flex gap-2"
         style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', background: 'var(--paper-card)' }}
