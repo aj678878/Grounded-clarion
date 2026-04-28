@@ -1,6 +1,7 @@
 import { generateJSON, generateText } from '@/lib/llm';
 import { SYNTHESIS_MODELS } from '../models';
 import {
+  buildSynthesisFallbackPrompt,
   buildSynthesisUserPrompt,
   SYNTHESIS_STRICT_APPEND,
   SYNTHESIS_SYSTEM_PROMPT,
@@ -11,12 +12,12 @@ import type {
   DegradedSynthesis,
   ExtractedSource,
 } from '../schema';
-import { comparativeSynthesisSchema } from '../schema';
+import { comparativeSynthesisSchema, ORIGINAL_ARTICLE_SOURCE_ID } from '../schema';
 
 type SynthesisPayload = ComparativeSynthesis | DegradedSynthesis;
 
 function validSourceIdSet(sources: ExtractedSource[]): Set<number> {
-  return new Set(sources.map((source) => source.source_id));
+  return new Set([ORIGINAL_ARTICLE_SOURCE_ID, ...sources.map((source) => source.source_id)]);
 }
 
 function hasOnlyValidSourceIds(ids: number[], validIds: Set<number>): boolean {
@@ -166,15 +167,14 @@ export async function synthesizeComparativeDossier(input: {
     }
   }
 
-  const sourceNames = validSources.map((s) => `${s.source_name} (${s.headline})`).join('; ');
   const rawText = await generateText({
     model: SYNTHESIS_MODELS.synthesis,
     system: 'You are a comparative news analysis writer. Write only prose, never JSON or code.',
-    user: `Compare the following peer outlet coverage with the Guardian article "${input.articleTitle}".
-
-Sources: ${sourceNames}
-
-Write a concise comparison overview (3–6 sentences). Focus on how outlets differ from each other and from the Guardian article — emphasis, omissions, framing. When coverage is largely aligned, say so and note remaining differences. Do NOT write a neutral recap of the news event itself.`,
+    user: buildSynthesisFallbackPrompt({
+      articleTitle: input.articleTitle,
+      articleContent: input.articleContent,
+      extractedSources: validSources,
+    }),
     maxTokens: 800,
     temperature: 0,
   });

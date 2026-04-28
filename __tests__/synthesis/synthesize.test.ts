@@ -72,11 +72,11 @@ describe('synthesizeComparativeDossier', () => {
       raw: '{"summary":"x"}',
       data: {
         summary: 'Outlets largely agree; Guardian stresses X while peers emphasize Y.',
-        agreements: [{ claim: 'Shared claim', source_ids: [1, 2] }],
+        agreements: [{ claim: 'Shared claim', source_ids: [0, 2] }],
         factual_disagreements: [],
         framing_and_labeling: [],
         key_entities: [
-          { name: 'Entity', role: 'Actor', source_ids: [1, 3] },
+          { name: 'Entity', role: 'Actor', source_ids: [0, 3] },
           { name: 'Bad entity', role: 'Actor', source_ids: [100] },
         ],
         open_questions: ['What happens next?'],

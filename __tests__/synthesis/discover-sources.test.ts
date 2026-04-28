@@ -145,6 +145,38 @@ describe('discoverSources', () => {
     );
   });
 
+  it('uses the article publication year over a mistaken extracted time window', async () => {
+    mockedTavily
+      .mockResolvedValueOnce(
+        okTavily([
+          { headline: 'Reuters 2026 event', url: 'https://www.reuters.com/a', source_domain: 'reuters.com', source_name: 'reuters.com', snippet: eventSnippet, published_at: '2026-04-28T10:00:00Z' },
+          { headline: 'AP 2026 event', url: 'https://apnews.com/a', source_domain: 'apnews.com', source_name: 'apnews.com', snippet: eventSnippet, published_at: '2026-04-28T09:00:00Z' },
+        ])
+      )
+      .mockResolvedValueOnce(okTavily([]))
+      .mockResolvedValueOnce(okTavily([]))
+      .mockResolvedValueOnce(okTavily([]))
+      .mockResolvedValueOnce(okTavily([]));
+
+    const out = await discoverSources({
+      signature: {
+        ...signature,
+        time_window: 'April 2024',
+      },
+      articleSourceDomain: 'theguardian.com',
+      articlePublishedAt: ARTICLE_DATE,
+    });
+
+    expect(out.result.selected_sources).toHaveLength(2);
+    expect(out.debug.rejected_candidates).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          decision: 'explicit_date_conflict',
+        }),
+      ])
+    );
+  });
+
   it('does not weak-backfill date-rejected candidates', async () => {
     mockedTavily
       .mockResolvedValueOnce(

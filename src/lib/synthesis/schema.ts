@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const ORIGINAL_ARTICLE_SOURCE_ID = 0;
+
 export const eventTypeSchema = z.enum([
   'incident',
   'policy',
@@ -147,11 +149,11 @@ export const synthesisTimelineItemSchema = z.object({
 
 export const synthesisAgreementSchema = z.object({
   claim: z.string().min(1),
-  source_ids: z.array(z.number().int().positive()).min(2),
+  source_ids: z.array(z.number().int().nonnegative()).min(2),
 });
 
 export const synthesisPositionSchema = z.object({
-  source_id: z.number().int().positive(),
+  source_id: z.number().int().nonnegative(),
   position: z.string().min(1),
 });
 
@@ -161,7 +163,7 @@ export const synthesisFactualDisagreementSchema = z.object({
 });
 
 export const synthesisLabelSchema = z.object({
-  source_id: z.number().int().positive(),
+  source_id: z.number().int().nonnegative(),
   label: z.string().min(1),
 });
 
@@ -174,7 +176,7 @@ export const synthesisFramingSchema = z.object({
 export const synthesisEntitySchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1),
-  source_ids: z.array(z.number().int().positive()).min(1),
+  source_ids: z.array(z.number().int().nonnegative()).min(1),
 });
 
 // v2: add timeline: z.array(synthesisTimelineItemSchema) when chronological dossier returns.

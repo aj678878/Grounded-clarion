@@ -97,6 +97,17 @@ function extractYears(text: string): number[] {
     .filter((year) => Number.isFinite(year));
 }
 
+function referenceYearsForDateCheck(
+  signature: EventSignature,
+  articlePublishedAt?: string | null
+): number[] {
+  const articleYear = articlePublishedAt ? Date.parse(articlePublishedAt) : Number.NaN;
+  if (Number.isFinite(articleYear)) {
+    return [new Date(articleYear).getUTCFullYear()];
+  }
+  return extractYears(signature.time_window);
+}
+
 function scoreEventMatch(
   row: Pick<DiscoveryCandidate, 'headline' | 'snippet'>,
   signature: EventSignature
@@ -183,6 +194,7 @@ function classifyCandidateMatch(
   const primaryActor = signature.key_actors[0] ?? '';
   const primaryActorOverlap =
     overlapCount(uniqueTokens(primaryActor), uniqueTokens(combined)) > 0;
+  const referenceYears = referenceYearsForDateCheck(signature, articlePublishedAt ?? null);
 
   if (/\/topic\/|\/topics\//.test(candidate.url) || /times topics|page \d+ of|topic page/i.test(lowerCombined)) {
     reasons.push('topic_or_index_page');
@@ -210,12 +222,11 @@ function classifyCandidateMatch(
     }
   }
 
-  const signatureYears = extractYears(signature.time_window);
   const candidateYears = extractYears(`${candidate.url} ${combined}`);
-  if (signatureYears.length > 0 && candidateYears.length > 0) {
+  if (referenceYears.length > 0 && candidateYears.length > 0) {
     const closestYearDelta = Math.min(
       ...candidateYears.flatMap((candidateYear) =>
-        signatureYears.map((signatureYear) => Math.abs(candidateYear - signatureYear))
+        referenceYears.map((referenceYear) => Math.abs(candidateYear - referenceYear))
       )
     );
     if (closestYearDelta > 0) {

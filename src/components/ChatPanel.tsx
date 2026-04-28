@@ -6,11 +6,9 @@ import { getSessionId, generateThreadId } from '@/lib/session';
 import ChatBubble from './ChatBubble';
 import DossierView from './DossierView';
 import { useCompareSources, type SourceStatus, type CompareResult } from '@/hooks/useCompareSources';
-import type {
-  ComparativeSynthesis,
-  DegradedSynthesis,
-  DiscoveredSource,
-} from '@/lib/synthesis/schema';
+import { ORIGINAL_ARTICLE_SOURCE_ID, type ComparativeSynthesis,
+  type DegradedSynthesis,
+  type DiscoveredSource } from '@/lib/synthesis/schema';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -498,8 +496,25 @@ export default function ChatPanel({
     if (!compare.result) return null;
     const r = compare.result;
     if (r.status === 'no_comparison' || !r.payload.phase3 || !r.payload.phase4) return null;
-    const sources = r.payload.phase2.selected_sources as DiscoveredSource[];
-    const extractedSourceIds = r.payload.phase3.extracted_sources.map((s: { source_id: number }) => s.source_id);
+    const peerSources = r.payload.phase2.selected_sources as DiscoveredSource[];
+    const sources: DiscoveredSource[] = [
+      {
+        source_id: ORIGINAL_ARTICLE_SOURCE_ID,
+        source_name: 'theguardian.com',
+        source_domain: 'theguardian.com',
+        headline: articleTitle ?? 'Guardian article',
+        url: articleSourceUrl,
+        published_at: articlePublishedAt ?? null,
+        snippet: '',
+        tier: 'tier1',
+        bias_lean: 'center-left',
+      },
+      ...peerSources,
+    ];
+    const extractedSourceIds = [
+      ORIGINAL_ARTICLE_SOURCE_ID,
+      ...r.payload.phase3.extracted_sources.map((s: { source_id: number }) => s.source_id),
+    ];
     return {
       synthesis: r.payload.phase4 as ComparativeSynthesis | DegradedSynthesis,
       sources,
@@ -509,7 +524,7 @@ export default function ChatPanel({
       status: r.status,
       totalDurationMs: r.total_duration_ms,
     };
-  }, [compare.result]);
+  }, [compare.result, articleTitle, articleSourceUrl, articlePublishedAt]);
 
   const showStarter = messages.length === 0 && !isLoading;
 
